@@ -1,9 +1,11 @@
-import { LayoutDashboard, CheckSquare, FolderGit2, Users, Settings, LogOut, Bell, MessageSquare, Clock, FileText, Menu, X, Mail, Video, BarChart2, Layers } from "lucide-react";
+import { LayoutDashboard, CheckSquare, FolderGit2, Users, Settings, LogOut, Bell, MessageSquare, Clock, FileText, Menu, X, Mail, Video, BarChart2, Layers, ChevronDown } from "lucide-react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/auth";
+import { useProject } from "../lib/projectContext";
+import { connectSocket, disconnectSocket, joinProjectRoom } from "../lib/socket";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiFetch } from "../lib/api";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
@@ -13,17 +15,25 @@ import { Label } from "../components/ui/label";
 
 export function Layout() {
   const { user, setUser, logout } = useAuth();
+  const { projects, activeProject, setActiveProject } = useProject();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [showProjectSelector, setShowProjectSelector] = useState(false);
 
-  const { data: projects = [] } = useQuery({
-    queryKey: ['projects'],
-    queryFn: async () => {
-      const res = await apiFetch('/api/projects');
-      if (!res.ok) throw new Error('Failed to fetch projects');
-      return res.json();
+  // Connect Socket.io when layout mounts (user is logged in)
+  useEffect(() => {
+    if (user) {
+      connectSocket(user.id, activeProject?.id);
     }
-  });
+    return () => { disconnectSocket(); };
+  }, [user]);
+
+  // Join new project room when active project changes
+  useEffect(() => {
+    if (activeProject) {
+      joinProjectRoom(activeProject.id);
+    }
+  }, [activeProject]);
 
   const { data: notifications = [] } = useQuery({
     queryKey: ['notifications'],
@@ -34,7 +44,7 @@ export function Layout() {
     }
   });
 
-  const currentProject = projects[0];
+  const currentProject = activeProject;
   
   let totalTasks = 0;
   let completedTasks = 0;
@@ -165,10 +175,39 @@ export function Layout() {
             >
               <Menu className="h-5 w-5" />
             </button>
-            <div className="flex items-center gap-2 text-sm font-bold">
+            <div className="flex items-center gap-2 text-sm font-bold relative">
               <span className="text-slate-400">Projects</span>
               <span className="text-slate-400">/</span>
-              <span>
+              
+              <div className="relative">
+                <button 
+                  onClick={() => setShowProjectSelector(!showProjectSelector)}
+                  className="flex items-center gap-1 hover:text-[#C6A15B] transition-colors"
+                >
+                  {activeProject?.title || 'Select Project'}
+                  <ChevronDown className="h-4 w-4 text-slate-400" />
+                </button>
+                
+                {showProjectSelector && (
+                  <div className="absolute top-full left-0 mt-2 w-48 bg-white border border-[#D1CDC4] shadow-lg z-50">
+                    {projects.map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => {
+                          setActiveProject(p);
+                          setShowProjectSelector(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors ${activeProject?.id === p.id ? 'text-[#C6A15B]' : 'text-slate-600'}`}
+                      >
+                        {p.title}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <span className="text-slate-400 ml-2">/</span>
+              <span className="ml-2">
                 {[...navItems, ...moreItems].find(n => location.pathname === n.href || (n.href !== "/" && location.pathname.startsWith(n.href)))?.name || "Workspace"}
               </span>
             </div>

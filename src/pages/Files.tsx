@@ -2,6 +2,7 @@ import { apiFetch } from '@/lib/api';
 import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
+import { useProject } from '../lib/projectContext';
 import { FileText, Image as ImageIcon, Video, Upload, Download, Folder, Plus, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '../components/ui/button';
@@ -10,6 +11,7 @@ import { Input } from '@/components/ui/input';
 
 export function Files() {
   const { user } = useAuth();
+  const { activeProject } = useProject();
   const queryClient = useQueryClient();
   const [isUploading, setIsUploading] = useState(false);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -19,28 +21,35 @@ export function Files() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: allFiles = [], isLoading } = useQuery({
-    queryKey: ['files'],
+    queryKey: ['files', activeProject?.id],
     queryFn: async () => {
-      const res = await apiFetch('/api/files');
+      if (!activeProject) return [];
+      const res = await apiFetch(`/api/files?projectId=${activeProject.id}`);
       if (!res.ok) throw new Error('Failed to fetch files');
       return res.json();
-    }
+    },
+    enabled: !!activeProject
   });
 
   const uploadFileMutation = useMutation({
-    mutationFn: async (data: { name: string; url?: string; type: string; size: number; parentId: string | null }) => {
-      const res = await apiFetch('/api/files', {
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('projectId', activeProject?.id || '');
+
+      const res = await apiFetch('/api/files/upload', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
+        body: formData
+        // Note: Do NOT set Content-Type header — the browser auto-sets it with the multipart boundary
       });
-      if (!res.ok) throw new Error('Failed to create item');
+      if (!res.ok) throw new Error('Failed to upload file');
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['files'] });
+      queryClient.invalidateQueries({ queryKey: ['files', activeProject?.id] });
+      setIsUploading(false);
+    },
+    onError: () => {
       setIsUploading(false);
     }
   });
@@ -48,26 +57,10 @@ export function Files() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setIsUploading(true);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const url = event.target?.result as string;
-      let type = 'FILE';
-      if (file.type.startsWith('image/')) type = 'IMAGE';
-      else if (file.type.startsWith('video/')) type = 'VIDEO';
-      
-      uploadFileMutation.mutate({
-        name: file.name,
-        url,
-        type,
-        size: file.size,
-        parentId: currentFolderId
-      });
-    };
-    reader.readAsDataURL(file);
+    uploadFileMutation.mutate(file);
     if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+      fileInputRef.current.value = '';
     }
   };
 

@@ -1,32 +1,39 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
+import { useProject } from '../lib/projectContext';
 import { Users, Briefcase, Mail, Trash2 } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { toast } from 'sonner';
 
 export function Team() {
   const { user } = useAuth();
+  const { activeProject } = useProject();
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({
-    queryKey: ['team'],
+    queryKey: ['team', activeProject?.id],
     queryFn: async () => {
-      const res = await apiFetch('/api/team');
+      if (!activeProject) return null;
+      const res = await apiFetch(`/api/projects/${activeProject.id}`);
       if (!res.ok) throw new Error('Failed to fetch team');
-      return res.json();
+      const json = await res.json();
+      return json.data.project;
     },
-    refetchInterval: 5000
+    refetchInterval: 5000,
+    enabled: !!activeProject
   });
 
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
-      const res = await apiFetch(`/api/users/${userId}`, {
+      if (!activeProject) throw new Error("No active project");
+      const res = await apiFetch(`/api/projects/${activeProject.id}/members/${userId}`, {
         method: 'DELETE'
       });
       if (!res.ok) throw new Error('Failed to delete user');
-      return res.json();
+      // No JSON returned for 204 No Content
+      return;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['team'] });
+      queryClient.invalidateQueries({ queryKey: ['team', activeProject?.id] });
       toast.success('Team member removed successfully');
     },
     onError: (error: any) => {
@@ -38,7 +45,8 @@ export function Team() {
     return <div className="text-center py-20 text-slate-500 font-bold uppercase tracking-widest text-xs animate-pulse">Loading team...</div>;
   }
 
-  const { teamMembers = [], activeTasks = [] } = data || {};
+  const teamMembers = data?.members || [];
+  const activeTasks = data?.tasks || [];
 
   // Group team members by task. Multiple users with the same task string (e.g. from same project)
   const usersWithTasks = teamMembers.map((user: any) => {
@@ -53,9 +61,9 @@ export function Team() {
   const groups: Record<string, { title: string, project: string, users: any[] }> = {};
   occupiedUsers.forEach((u: any) => {
     u.tasks.forEach((task: any) => {
-      const key = `${task.project.title}-${task.title}`;
+      const key = `${activeProject?.title}-${task.title}`;
       if (!groups[key]) {
-        groups[key] = { title: task.title, project: task.project.title, users: [] };
+        groups[key] = { title: task.title, project: activeProject?.title || '', users: [] };
       }
       if (!groups[key].users.find((eu: any) => eu.id === u.id)) {
         groups[key].users.push(u);

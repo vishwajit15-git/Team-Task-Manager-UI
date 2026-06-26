@@ -9,6 +9,8 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { toast } from 'sonner';
 
+import { useProject } from '../lib/projectContext';
+
 const fetchStats = async () => {
   const res = await apiFetch('/api/dashboard');
   if (!res.ok) throw new Error('Failed to fetch stats');
@@ -17,6 +19,7 @@ const fetchStats = async () => {
 
 export function Dashboard() {
   const { user } = useAuth();
+  const { activeProject } = useProject();
   const queryClient = useQueryClient();
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('Ongoing');
@@ -41,7 +44,8 @@ export function Dashboard() {
 
   const sendInviteMutation = useMutation({
     mutationFn: async (email: string) => {
-      const res = await apiFetch('/api/invite', {
+      if (!activeProject) throw new Error('Please select a project first');
+      const res = await apiFetch(`/api/projects/${activeProject.id}/members`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })

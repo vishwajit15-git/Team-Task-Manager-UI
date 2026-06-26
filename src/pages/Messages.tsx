@@ -2,12 +2,15 @@ import { apiFetch } from '@/lib/api';
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
+import { useProject } from '../lib/projectContext';
+import { socket } from '../lib/socket';
 import { Send, Image as ImageIcon, Paperclip, Video, FileText, Reply, X, Smile } from 'lucide-react';
 import { format } from 'date-fns';
 import EmojiPicker from 'emoji-picker-react';
 
 export function Messages() {
   const { user } = useAuth();
+  const { activeProject } = useProject();
   const queryClient = useQueryClient();
   const [content, setContent] = useState('');
   const [attachment, setAttachment] = useState<{ url: string; type: string } | null>(null);
@@ -17,18 +20,28 @@ export function Messages() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: messages = [], isLoading } = useQuery({
-    queryKey: ['messages'],
+    queryKey: ['messages', activeProject?.id],
     queryFn: async () => {
-      const res = await apiFetch('/api/messages');
+      if (!activeProject) return [];
+      const res = await apiFetch(`/api/projects/${activeProject.id}/messages`);
       if (!res.ok) throw new Error('Failed to fetch messages');
       return res.json();
     },
-    refetchInterval: 3000 // Poll every 3 seconds for simple realtime
+    enabled: !!activeProject
   });
+
+  // Socket.io: listen for real-time messages instead of polling
+  useEffect(() => {
+    const handleNewMessage = (msg: any) => {
+      queryClient.setQueryData(['messages', activeProject?.id], (old: any) => [...(old || []), msg]);
+    };
+    socket.on('new_message', handleNewMessage);
+    return () => { socket.off('new_message', handleNewMessage); };
+  }, [activeProject?.id, queryClient]);
 
   const sendMessageMutation = useMutation({
     mutationFn: async (data: { content: string; attachmentUrl?: string; attachmentType?: string; replyToId?: string }) => {
-      const res = await apiFetch('/api/messages', {
+      const res = await apiFetch(`/api/projects/${activeProject?.id}/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -39,8 +52,8 @@ export function Messages() {
       return res.json();
     },
     onMutate: async (newMsg) => {
-      await queryClient.cancelQueries({ queryKey: ['messages'] });
-      const previousMessages = queryClient.getQueryData(['messages']);
+      await queryClient.cancelQueries({ queryKey: ['messages', activeProject?.id] });
+      const previousMessages = queryClient.getQueryData(['messages', activeProject?.id]);
       
       const tempMessage = {
         id: Date.now().toString(),
@@ -60,7 +73,7 @@ export function Messages() {
         } : null,
       };
 
-      queryClient.setQueryData(['messages'], (old: any) => [...(old || []), tempMessage]);
+      queryClient.setQueryData(['messages', activeProject?.id], (old: any) => [...(old || []), tempMessage]);
 
       setContent('');
       setAttachment(null);
@@ -71,11 +84,11 @@ export function Messages() {
     },
     onError: (err, newMsg, context) => {
       if (context?.previousMessages) {
-        queryClient.setQueryData(['messages'], context.previousMessages);
+        queryClient.setQueryData(['messages', activeProject?.id], context.previousMessages);
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['messages'] });
+      queryClient.invalidateQueries({ queryKey: ['messages', activeProject?.id] });
     }
   });
 

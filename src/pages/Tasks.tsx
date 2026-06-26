@@ -2,6 +2,7 @@ import { apiFetch } from '@/lib/api';
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
+import { useProject } from '../lib/projectContext';
 import { format } from 'date-fns';
 import { CheckSquare, Plus, FolderGit2, Trash2, Edit2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '../components/ui/dialog';
@@ -15,6 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popove
 
 export function Tasks() {
   const { user } = useAuth();
+  const { activeProject } = useProject();
   const queryClient = useQueryClient();
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [comment, setComment] = useState('');
@@ -42,22 +44,27 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
   });
 
   const { data: tasks = [], isLoading } = useQuery({
-    queryKey: ['myTasks'],
+    queryKey: ['myTasks', activeProject?.id],
     queryFn: async () => {
-      const res = await apiFetch('/api/tasks');
+      const res = await apiFetch(`/api/tasks${activeProject ? `?projectId=${activeProject.id}` : ''}`);
       if (!res.ok) throw new Error('Failed to fetch tasks');
-      return res.json();
-    }
+      const data = await res.json();
+      return data.data.tasks || [];
+    },
+    enabled: !!activeProject
   });
 
   const { data: users = [] } = useQuery({
-    queryKey: ['users'],
+    queryKey: ['project_members', activeProject?.id],
     queryFn: async () => {
-      const res = await apiFetch('/api/users');
+      if (!activeProject) return [];
+      const res = await apiFetch(`/api/projects/${activeProject.id}`);
       if (!res.ok) return [];
-      return res.json();
+      const json = await res.json();
+      return json.data.project.members || [];
     },
-    enabled: user?.role === 'ADMIN'
+    enabled: !!activeProject
+
   });
 
   const { data: comments = [], isLoading: isLoadingComments } = useQuery({
@@ -148,7 +155,7 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
       const res = await apiFetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...newTask, projectId: projects[0].id })
+        body: JSON.stringify({ ...newTask, projectId: activeProject?.id })
       });
       if (!res.ok) throw new Error('Failed to create task');
       return res.json();
@@ -197,7 +204,7 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
     sendCommentMutation.mutate(comment.trim());
   };
 
-  const currentProject = projects[0];
+  const currentProject = activeProject;
 
   if (isLoading || isLoadingProjects) return <div className="p-8 text-center text-slate-500 font-bold uppercase tracking-widest text-xs animate-pulse">Loading tasks...</div>;
 

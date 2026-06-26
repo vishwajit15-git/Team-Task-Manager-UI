@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../lib/auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
+import { useProject } from '../lib/projectContext';
 import { format } from 'date-fns';
 import { Video, Plus, Phone, Calendar } from 'lucide-react';
 import { JitsiMeeting } from '@jitsi/react-sdk';
@@ -18,6 +19,7 @@ import { Label } from "../components/ui/label";
 
 export function Meeting() {
   const { user } = useAuth();
+  const { activeProject } = useProject();
   const queryClient = useQueryClient();
   const [activeRoom, setActiveRoom] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -26,18 +28,21 @@ export function Meeting() {
   const [scheduledAt, setScheduledAt] = useState('');
 
   const { data: meetings = [], isLoading } = useQuery({
-    queryKey: ['meetings'],
+    queryKey: ['meetings', activeProject?.id],
     queryFn: async () => {
-      const res = await apiFetch('/api/meetings');
+      if (!activeProject) return [];
+      const res = await apiFetch(`/api/projects/${activeProject.id}/meetings`);
       if (!res.ok) throw new Error('Failed to fetch meetings');
-      return res.json();
+      const data = await res.json();
+      return data.data.meetings || [];
     },
-    refetchInterval: 5000
+    refetchInterval: 5000,
+    enabled: !!activeProject
   });
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiFetch('/api/meetings', {
+      const res = await apiFetch(`/api/projects/${activeProject?.id}/meetings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -46,7 +51,7 @@ export function Meeting() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['meetings'] });
+      queryClient.invalidateQueries({ queryKey: ['meetings', activeProject?.id] });
       setIsDialogOpen(false);
       setTitle('');
       setDescription('');
@@ -56,7 +61,7 @@ export function Meeting() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string, status: string }) => {
-      const res = await apiFetch(`/api/meetings/${id}`, {
+      const res = await apiFetch(`/api/projects/${activeProject?.id}/meetings/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status })
@@ -65,7 +70,7 @@ export function Meeting() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['meetings'] });
+      queryClient.invalidateQueries({ queryKey: ['meetings', activeProject?.id] });
     }
   });
 
