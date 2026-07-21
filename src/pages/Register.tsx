@@ -7,12 +7,6 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "../components/ui/card";
 import { toast } from "sonner";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue} from "../components/ui/select";
 
 export function Register() {
   const [name, setName] = useState("");
@@ -93,15 +87,15 @@ export function Register() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="role" className="text-xs font-bold uppercase tracking-widest text-[#111111]">Role</Label>
-              <Select value={role} onValueChange={setRole}>
-                <SelectTrigger className="w-full rounded-none border-[#D1CDC4] focus:ring-[#C6A15B]">
-                  <SelectValue placeholder="Select a role" />
-                </SelectTrigger>
-                <SelectContent className="rounded-none border-[#D1CDC4]">
-                  <SelectItem value="MEMBER" className="font-bold text-xs uppercase tracking-widest rounded-none">Team Member</SelectItem>
-                  <SelectItem value="ADMIN" className="font-bold text-xs uppercase tracking-widest rounded-none">Admin</SelectItem>
-                </SelectContent>
-              </Select>
+              <select
+                id="role"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="h-8 w-full min-w-0 rounded-none border border-[#D1CDC4] bg-transparent px-2.5 py-1 text-sm transition-colors outline-none appearance-none cursor-pointer focus-visible:border-[#C6A15B] focus-visible:ring-3 focus-visible:ring-[#C6A15B]/50"
+              >
+                <option value="MEMBER">Team Member</option>
+                <option value="ADMIN">Admin</option>
+              </select>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4 p-6 bg-slate-50 border-t border-[#D1CDC4]">

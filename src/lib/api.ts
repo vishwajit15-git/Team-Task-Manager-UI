@@ -7,7 +7,8 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit) => 
   const res = await fetch(input, { ...init, headers, credentials: 'include' });
   if (res.status === 401) {
     localStorage.removeItem('token');
-    if (window.location.pathname !== '/login') {
+    const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password'];
+    if (!publicPaths.some(path => window.location.pathname.startsWith(path))) {
       window.location.href = '/login';
     }
   }

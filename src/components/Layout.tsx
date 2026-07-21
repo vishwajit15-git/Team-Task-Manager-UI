@@ -3,7 +3,7 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { useProject } from "../lib/projectContext";
 import { connectSocket, disconnectSocket, joinProjectRoom } from "../lib/socket";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "../lib/api";
 import { useState, useEffect } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
@@ -11,7 +11,6 @@ import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
-import { Label } from "../components/ui/label";
 import { Label } from "../components/ui/label";
 import { toast } from "sonner";
 
@@ -86,7 +85,8 @@ export function Layout() {
     queryFn: async () => {
       const res = await apiFetch('/api/notifications');
       if (!res.ok) throw new Error('Failed to fetch notifications');
-      return res.json();
+      const json = await res.json();
+      return json.data?.notifications || [];
     }
   });
 

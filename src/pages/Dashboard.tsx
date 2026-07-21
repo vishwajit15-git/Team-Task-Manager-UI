@@ -1,11 +1,9 @@
 import { apiFetch } from '@/lib/api';
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { format } from 'date-fns';
-import { CheckCircle2, Circle, Clock, LayoutDashboard, Briefcase, ListTodo, Send } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Send } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { toast } from 'sonner';
 
@@ -14,7 +12,8 @@ import { useProject } from '../lib/projectContext';
 const fetchStats = async () => {
   const res = await apiFetch('/api/dashboard');
   if (!res.ok) throw new Error('Failed to fetch stats');
-  return res.json();
+  const json = await res.json();
+  return json.data;
 };
 
 export function Dashboard() {
@@ -53,7 +52,7 @@ export function Dashboard() {
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
-    onSuccess: (data, email) => {
+    onSuccess: (_, email) => {
       toast.success(`Invite sent successfully to ${email}`);
     },
     onError: (err: any) => {
@@ -80,9 +79,9 @@ export function Dashboard() {
   });
 
   if (isLoading) return <div className="p-8 text-center text-muted-foreground animate-pulse">Loading dashboard...</div>;
-  if (!data) return <div className="p-8 text-center text-destructive">Failed to load dashboard data.</div>;
+  if (!data || !data.stats) return <div className="p-8 text-center text-destructive">Failed to load dashboard data.</div>;
 
-  const { metrics, overdueTasks = [], ongoingTasks = [], pendingTasks = [], notifications = [] } = data;
+  const { stats, overdueTasks = [], ongoingTasks = [], pendingTasks = [], notifications = [] } = data;
 
   const handleSendComment = (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,25 +101,25 @@ export function Dashboard() {
       <div className="flex flex-col md:flex-row gap-6">
         <div className="bg-white border border-[#D1CDC4] p-4 flex-1">
           <div className="text-xs uppercase tracking-widest text-slate-500 font-bold mb-2">Active Projects</div>
-          <div className="text-4xl font-bold mb-1">{metrics.projectsActive < 10 ? `0${metrics.projectsActive}` : metrics.projectsActive}</div>
+          <div className="text-4xl font-bold mb-1">{stats.activeProjects < 10 ? `0${stats.activeProjects}` : stats.activeProjects}</div>
           <div className="w-full h-1 bg-slate-100 mt-4">
             <div className="h-full bg-[#1F4D3A]" style={{ width: '100%' }}></div>
           </div>
         </div>
         <div className="bg-white border border-[#D1CDC4] p-4 flex-1">
           <div className="text-xs uppercase tracking-widest text-slate-500 font-bold mb-2">My Open Tasks</div>
-          <div className="text-4xl font-bold mb-1">{metrics.tasksAssigned < 10 ? `0${metrics.tasksAssigned}` : metrics.tasksAssigned}</div>
+          <div className="text-4xl font-bold mb-1">{stats.openTasks < 10 ? `0${stats.openTasks}` : stats.openTasks}</div>
           <div className="text-xs text-emerald-700 mt-4 font-bold">Needs attention</div>
         </div>
         <div className="bg-white border border-[#D1CDC4] p-4 flex-1">
           <div className="text-xs uppercase tracking-widest text-slate-500 font-bold mb-2">Completed Tasks</div>
-          <div className="text-4xl font-bold mb-1 text-slate-700">{metrics.tasksCompleted < 10 ? `0${metrics.tasksCompleted}` : metrics.tasksCompleted}</div>
+          <div className="text-4xl font-bold mb-1 text-slate-700">{stats.completedTasks < 10 ? `0${stats.completedTasks}` : stats.completedTasks}</div>
           <div className="text-xs text-slate-400 mt-4">Recent activity</div>
         </div>
         <div className="bg-[#C6A15B] text-[#111111] p-4 flex-1 flex flex-col justify-between">
           <div>
             <div className="text-xs uppercase tracking-widest font-bold mb-2">Team Capacity</div>
-            <div className="text-4xl font-bold mb-1">{metrics.teamSize ?? 0}</div>
+            <div className="text-4xl font-bold mb-1">{stats.teamCapacity < 10 ? `0${stats.teamCapacity}` : stats.teamCapacity}</div>
             <div className="text-xs font-bold mt-2 text-[#111111]/70">Members joined</div>
           </div>
           {user?.role === 'ADMIN' && (
@@ -245,7 +244,7 @@ export function Dashboard() {
           <div className="text-center py-4">
             <div className="text-xs text-slate-400">Tasks Due Soon</div>
             <div className="text-6xl font-bold tracking-tighter my-2">
-              {metrics.tasksAssigned > 0 ? (metrics.tasksAssigned < 10 ? `0${metrics.tasksAssigned}` : metrics.tasksAssigned) : '--'}
+              {stats.openTasks > 0 ? (stats.openTasks < 10 ? `0${stats.openTasks}` : stats.openTasks) : '--'}
             </div>
           </div>
         </div>
