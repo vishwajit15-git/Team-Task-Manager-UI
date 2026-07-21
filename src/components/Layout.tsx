@@ -12,13 +12,59 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { Label } from "../components/ui/label";
+import { Label } from "../components/ui/label";
+import { toast } from "sonner";
 
 export function Layout() {
+  const queryClient = useQueryClient();
   const { user, setUser, logout } = useAuth();
   const { projects, activeProject, setActiveProject } = useProject();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showProjectSelector, setShowProjectSelector] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [projectTitle, setProjectTitle] = useState("");
+
+  useEffect(() => {
+    if (activeProject) {
+      setProjectTitle(activeProject.title || activeProject.name || "");
+    }
+  }, [activeProject]);
+
+  const updateProjectMutation = useMutation({
+    mutationFn: async (data: any) => {
+      if (!activeProject) throw new Error("No active project");
+      const res = await apiFetch(`/api/projects/${activeProject.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to update project");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      setShowSettings(false);
+      toast.success("Project updated successfully");
+    },
+  });
+
+  const deleteProjectMutation = useMutation({
+    mutationFn: async () => {
+      if (!activeProject) throw new Error("No active project");
+      const res = await apiFetch(`/api/projects/${activeProject.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete project");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      setActiveProject(null);
+      setShowSettings(false);
+      toast.success("Project deleted successfully");
+    },
+  });
 
   // Connect Socket.io when layout mounts (user is logged in)
   useEffect(() => {
@@ -205,6 +251,57 @@ export function Layout() {
                   </div>
                 )}
               </div>
+
+              {activeProject && (
+                <Dialog open={showSettings} onOpenChange={setShowSettings}>
+                  <DialogTrigger asChild>
+                    <button className="ml-1 p-1 hover:bg-slate-100 rounded-md text-slate-400 hover:text-slate-600 transition-colors">
+                      <Settings className="h-4 w-4" />
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Project Settings</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-6 pt-4">
+                      <div className="space-y-2">
+                        <Label>Project Name</Label>
+                        <Input 
+                          value={projectTitle} 
+                          onChange={(e) => setProjectTitle(e.target.value)} 
+                          placeholder="e.g. Website Redesign"
+                        />
+                        <Button 
+                          onClick={() => updateProjectMutation.mutate({ name: projectTitle })}
+                          disabled={updateProjectMutation.isPending || !projectTitle.trim() || projectTitle === (activeProject.title || activeProject.name)}
+                          className="w-full mt-2 bg-[#1F4D3A] text-white"
+                        >
+                          {updateProjectMutation.isPending ? "Saving..." : "Save Changes"}
+                        </Button>
+                      </div>
+
+                      <div className="pt-4 border-t border-red-100">
+                        <h4 className="text-sm font-semibold text-red-600 mb-2">Danger Zone</h4>
+                        <p className="text-xs text-slate-500 mb-4">
+                          Once you delete a project, there is no going back. Please be certain.
+                        </p>
+                        <Button 
+                          onClick={() => {
+                            if (window.confirm("Are you absolutely sure you want to delete this project and all its tasks, files, and messages?")) {
+                              deleteProjectMutation.mutate();
+                            }
+                          }}
+                          disabled={deleteProjectMutation.isPending}
+                          variant="destructive"
+                          className="w-full"
+                        >
+                          {deleteProjectMutation.isPending ? "Deleting..." : "Delete Project"}
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
 
               <span className="text-slate-400 ml-2">/</span>
               <span className="ml-2">

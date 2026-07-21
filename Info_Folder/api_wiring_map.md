@@ -21,8 +21,8 @@ This document maps every backend endpoint in the `Team-Task-Manager` (Node.js/Ex
 | `/api/projects/:id` | `GET` | `src/pages/Team.tsx`, `Tasks.tsx` | Fetch project details (members array and active tasks) |
 | `/api/projects/:projectId/members` | `POST` | `src/pages/Dashboard.tsx` | Invite/add a new member to the active project |
 | `/api/projects/:projectId/members/:userId` | `DELETE` | `src/pages/Team.tsx` | Remove a member from the active project |
-| `/api/projects` | `POST` | *Pending UI* | Create a new project |
-| `/api/projects/:id` | `PATCH / DELETE`| *Pending UI* | Update or delete a project |
+| `/api/projects` | `POST` | `src/pages/Tasks.tsx` | Create a new project (Workspace setup) |
+| `/api/projects/:id` | `PATCH / DELETE`| `src/components/Layout.tsx` | Update or delete a project (Project Settings modal) |
 
 ### 3. Tasks (`/api/tasks`)
 | Backend Endpoint | HTTP Method | Frontend File | Purpose |
