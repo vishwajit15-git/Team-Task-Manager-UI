@@ -152,10 +152,10 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
 
   const createTaskMutation = useMutation({
     mutationFn: async (newTask: any) => {
-      const res = await apiFetch('/api/tasks', {
+      const res = await apiFetch(`/api/tasks?projectId=${activeProject?.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...newTask, projectId: activeProject?.id })
+        body: JSON.stringify(newTask)
       });
       if (!res.ok) throw new Error('Failed to create task');
       return res.json();
@@ -233,7 +233,7 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
                   <DialogHeader>
                     <DialogTitle>Setup Initial Project</DialogTitle>
                   </DialogHeader>
-                  <form onSubmit={(e) => { e.preventDefault(); createProjectMutation.mutate({ title: projectTitle }); }} className="space-y-4 pt-4">
+                  <form onSubmit={(e) => { e.preventDefault(); createProjectMutation.mutate({ name: projectTitle }); }} className="space-y-4 pt-4">
                     <div className="space-y-2">
                       <Label htmlFor="projectTitle">Project Title</Label>
                       <Input id="projectTitle" value={projectTitle} onChange={(e) => setProjectTitle(e.target.value)} required />
@@ -256,7 +256,13 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
                   <DialogHeader>
                     <DialogTitle>Create New Task</DialogTitle>
                   </DialogHeader>
-                  <form onSubmit={(e) => { e.preventDefault(); createTaskMutation.mutate({ title, description, priority, assignees, dueDate, startDate }); }} className="space-y-4 pt-4">
+                  <form onSubmit={(e) => { 
+                    e.preventDefault(); 
+                    const payload: any = { title, description, priority };
+                    if (assignees.length > 0) payload.assigneeId = assignees[0]; // Zod schema expects a single assigneeId
+                    if (dueDate) payload.dueDate = new Date(dueDate).toISOString();
+                    createTaskMutation.mutate(payload); 
+                  }} className="space-y-4 pt-4">
                     <div className="space-y-2">
                       <Label htmlFor="title">Task Title</Label>
                       <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} required />
@@ -374,7 +380,13 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
                 <div className="p-6 h-full flex flex-col">
                   <DialogTitle className="text-2xl font-bold tracking-tight text-[#111111] mb-6">Edit Task</DialogTitle>
                   <div className="flex-1 overflow-y-auto pr-2">
-                    <form id="edit-task-form" onSubmit={(e) => { e.preventDefault(); editTaskMutation.mutate({ title, description, priority, assignees, dueDate, startDate }); }} className="space-y-4">
+                    <form id="edit-task-form" onSubmit={(e) => { 
+                      e.preventDefault(); 
+                      const payload: any = { title, description, priority };
+                      if (assignees.length > 0) payload.assigneeId = assignees[0];
+                      if (dueDate) payload.dueDate = new Date(dueDate).toISOString();
+                      editTaskMutation.mutate(payload); 
+                    }} className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="edit-title">Task Title</Label>
                         <Input id="edit-title" value={title} onChange={(e) => setTitle(e.target.value)} required />

@@ -3,11 +3,12 @@ import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
 import { useProject } from '../lib/projectContext';
-import { FileText, Image as ImageIcon, Video, Upload, Download, Folder, Plus, ChevronRight } from 'lucide-react';
+import { FileText, Image as ImageIcon, Video, Upload, Folder, Plus, ChevronRight, Trash2, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '../components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
 
 export function Files() {
   const { user } = useAuth();
@@ -18,6 +19,8 @@ export function Files() {
   const [folderPath, setFolderPath] = useState<{id: string, name: string}[]>([]);
   const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
+  const [previewFile, setPreviewFile] = useState<any>(null);
+  const [fileToDelete, setFileToDelete] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: allFiles = [], isLoading } = useQuery({
@@ -36,11 +39,13 @@ export function Files() {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('projectId', activeProject?.id || '');
+      if (currentFolderId) {
+        formData.append('folderId', currentFolderId);
+      }
 
       const res = await apiFetch('/api/files/upload', {
         method: 'POST',
         body: formData
-        // Note: Do NOT set Content-Type header — the browser auto-sets it with the multipart boundary
       });
       if (!res.ok) throw new Error('Failed to upload file');
       return res.json();
@@ -48,9 +53,48 @@ export function Files() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['files', activeProject?.id] });
       setIsUploading(false);
+      toast.success('File uploaded successfully');
     },
     onError: () => {
       setIsUploading(false);
+      toast.error('Failed to upload file');
+    }
+  });
+
+  const createFolderMutation = useMutation({
+    mutationFn: async (data: { name: string, folderId: string | null, projectId: string }) => {
+      const res = await apiFetch('/api/files/folder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) throw new Error('Failed to create folder');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['files', activeProject?.id] });
+      toast.success('Folder created');
+    }
+  });
+
+  const deleteFileMutation = useMutation({
+    mutationFn: async (fileId: string) => {
+      const res = await apiFetch(`/api/files/${fileId}`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || 'Failed to delete');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['files', activeProject?.id] });
+      setPreviewFile(null);
+      setFileToDelete(null);
+      toast.success('Deleted successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to delete');
     }
   });
 
@@ -66,16 +110,71 @@ export function Files() {
 
   const handleCreateFolder = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newFolderName.trim()) return;
+    if (!newFolderName.trim() || !activeProject) return;
     
-    uploadFileMutation.mutate({
+    createFolderMutation.mutate({
       name: newFolderName.trim(),
-      type: 'FOLDER',
-      size: 0,
-      parentId: currentFolderId
+      folderId: currentFolderId,
+      projectId: activeProject.id
     });
     setNewFolderName('');
     setIsNewFolderDialogOpen(false);
+  };
+
+  const handleDelete = (e: React.MouseEvent, file: any) => {
+    e.stopPropagation();
+    setFileToDelete(file);
+  };
+
+  const handleFileClick = (file: any) => {
+    if (file.type === 'FOLDER') {
+      navigateToFolder(file.id, file.name);
+    } else {
+      setPreviewFile(file);
+    }
+  };
+
+  const renderPreview = (file: any) => {
+    if (!file || !file.url) return null;
+
+    if (file.type === 'IMAGE') {
+      return (
+        <div className="flex items-center justify-center max-h-[70vh] overflow-auto">
+          <img src={file.url} alt={file.name} className="max-w-full max-h-[70vh] object-contain" />
+        </div>
+      );
+    }
+
+    if (file.type === 'VIDEO') {
+      return (
+        <div className="flex items-center justify-center">
+          <video src={file.url} controls className="max-w-full max-h-[70vh]" />
+        </div>
+      );
+    }
+
+    // PDF files
+    if (file.mimeType === 'application/pdf') {
+      return (
+        <iframe src={file.url} className="w-full h-[70vh] border-0" title={file.name} />
+      );
+    }
+
+    // Other files — show info card
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <FileText className="h-16 w-16 text-slate-300 mb-4" />
+        <h3 className="text-lg font-bold text-[#111111]">{file.name}</h3>
+        <p className="text-sm text-slate-500 mt-2">{formatSize(file.size)} • {file.mimeType}</p>
+        <a
+          href={file.url}
+          download={file.name}
+          className="mt-6 px-6 py-3 bg-[#1F4D3A] text-white font-bold uppercase tracking-widest text-xs hover:bg-[#1F4D3A]/90 transition-colors"
+        >
+          Download File
+        </a>
+      </div>
+    );
   };
 
   const currentLevelFiles = allFiles.filter((f: any) => f.parentId === currentFolderId);
@@ -192,8 +291,8 @@ export function Files() {
           {combined.map((file: any) => (
             <div 
               key={file.id} 
-              className={`bg-white border border-[#D1CDC4] h-full flex flex-col hover:bg-[#FAF9F6] transition-colors relative group ${file.type === 'FOLDER' ? 'cursor-pointer' : ''}`}
-              onClick={() => file.type === 'FOLDER' ? navigateToFolder(file.id, file.name) : undefined}
+              className="bg-white border border-[#D1CDC4] h-full flex flex-col hover:bg-[#FAF9F6] transition-colors relative group cursor-pointer"
+              onClick={() => handleFileClick(file)}
             >
               <div className="p-6 pb-4">
                 <div className="flex items-start gap-4">
@@ -221,24 +320,86 @@ export function Files() {
                   {format(new Date(file.createdAt), 'MMM d, yyyy')}
                 </span>
                 
-                {file.type !== 'FOLDER' && file.url && (
-                  <a 
-                    href={file.url} 
-                    download={file.name}
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="absolute bottom-4 right-4 bg-[#C6A15B] text-[#111111] p-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:brightness-110"
-                    title="Download File"
+                {/* Delete button — only shown to the uploader */}
+                {file.uploaderId === user?.id && (
+                  <button
+                    onClick={(e) => handleDelete(e, file)}
+                    className="absolute top-3 right-3 bg-red-500 text-white p-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:bg-red-600 rounded-sm"
+                    title="Delete"
                   >
-                    <Download className="h-4 w-4" />
-                  </a>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 )}
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Inline File Preview Dialog */}
+      {previewFile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setPreviewFile(null)}>
+          <div className="bg-white w-full max-w-4xl max-h-[90vh] mx-4 overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#D1CDC4]">
+              <div className="flex items-center gap-3">
+                {getFileIcon(previewFile.type)}
+                <div>
+                  <h3 className="text-sm font-bold text-[#111111]">{previewFile.name}</h3>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                    {formatSize(previewFile.size)} • {previewFile.type}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {previewFile.uploaderId === user?.id && (
+                  <button
+                    onClick={() => setFileToDelete(previewFile)}
+                    className="p-2 text-red-500 hover:bg-red-50 transition-colors rounded-sm"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+                <button onClick={() => setPreviewFile(null)} className="p-2 text-slate-500 hover:text-[#111111] transition-colors">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6 overflow-auto max-h-[calc(90vh-80px)]">
+              {renderPreview(previewFile)}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!fileToDelete} onOpenChange={(open) => !open && setFileToDelete(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Confirm Deletion</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-[#111111]">
+              Are you sure you want to delete <span className="font-bold">"{fileToDelete?.name}"</span>?
+            </p>
+            {fileToDelete?.type === 'FOLDER' && (
+              <p className="text-red-500 text-sm mt-2 font-bold uppercase tracking-widest">
+                Warning: All files inside this folder will also be deleted.
+              </p>
+            )}
+          </div>
+          <div className="flex justify-end gap-3 mt-2">
+            <Button variant="outline" onClick={() => setFileToDelete(null)}>Cancel</Button>
+            <Button 
+              className="bg-red-500 hover:bg-red-600 text-white"
+              onClick={() => deleteFileMutation.mutate(fileToDelete.id)}
+              disabled={deleteFileMutation.isPending}
+            >
+              {deleteFileMutation.isPending ? 'Deleting...' : 'Delete'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
