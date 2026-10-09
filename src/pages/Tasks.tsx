@@ -33,8 +33,10 @@ export function Tasks() {
 const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [projectTitle, setProjectTitle] = useState('');
+  const [taskToDelete, setTaskToDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const { data: projects = [], isLoading: isLoadingProjects } = useQuery({
+  const { isLoading: isLoadingProjects } = useQuery({
     queryKey: ['projects'],
     queryFn: async () => {
       const res = await apiFetch('/api/projects');
@@ -71,13 +73,14 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
     queryKey: ['taskComments', selectedTask?.id],
     queryFn: async () => {
       if (!selectedTask) return [];
-      const res = await apiFetch(`/api/tasks/${selectedTask.id}/comments`, {
-        
-      });
+      const res = await apiFetch(`/api/tasks/${selectedTask.id}/comments`);
       if (!res.ok) throw new Error('Failed to fetch comments');
-      return res.json();
+      const json = await res.json();
+      // API returns { status, data: { comments: [...] } }
+      return json.data?.comments || [];
     },
-    enabled: !!selectedTask});
+    enabled: !!selectedTask
+  });
 
   const sendCommentMutation = useMutation({
     mutationFn: async (content: string) => {
@@ -131,7 +134,8 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['myTasks'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      setSelectedTask(updated);
+      // API returns { status, data: { task: {...} } } — extract the task
+      setSelectedTask(updated?.data?.task || updated);
       setIsEditingTask(false);
       toast.success('Task updated successfully');
     },
@@ -144,7 +148,8 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
     setTitle(selectedTask.title);
     setDescription(selectedTask.description || '');
     setPriority(selectedTask.priority);
-    setAssignees(selectedTask.assignees.map((a: any) => a.id));
+    // Backend returns single 'assignee', not an array
+    setAssignees(selectedTask.assignee ? [selectedTask.assignee.id] : []);
     setDueDate(selectedTask.dueDate ? format(new Date(selectedTask.dueDate), 'yyyy-MM-dd') : '');
     setStartDate(selectedTask.startDate ? format(new Date(selectedTask.startDate), 'yyyy-MM-dd') : '');
     setIsEditingTask(true);
@@ -259,7 +264,8 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
                   <form onSubmit={(e) => { 
                     e.preventDefault(); 
                     const payload: any = { title, description, priority };
-                    if (assignees.length > 0) payload.assigneeId = assignees[0]; // Zod schema expects a single assigneeId
+                    if (assignees.length > 0) payload.assigneeId = assignees[0];
+                    if (startDate) payload.startDate = new Date(startDate).toISOString();
                     if (dueDate) payload.dueDate = new Date(dueDate).toISOString();
                     createTaskMutation.mutate(payload); 
                   }} className="space-y-4 pt-4">
@@ -384,6 +390,7 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
                       e.preventDefault(); 
                       const payload: any = { title, description, priority };
                       if (assignees.length > 0) payload.assigneeId = assignees[0];
+                      if (startDate) payload.startDate = new Date(startDate).toISOString();
                       if (dueDate) payload.dueDate = new Date(dueDate).toISOString();
                       editTaskMutation.mutate(payload); 
                     }} className="space-y-4">
@@ -484,17 +491,7 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
                         <Edit2 className="h-4 w-4" />
                       </button>
                       <button 
-                        onClick={async () => {
-                          if (confirm('Are you sure you want to delete this task?')) {
-                            try {
-                              const res = await apiFetch(`/api/tasks/${selectedTask.id}`, { method: 'DELETE' });
-                              if (res.ok) {
-                                queryClient.invalidateQueries({ queryKey: ['myTasks'] });
-                                setSelectedTask(null);
-                              }
-                            } catch (err) {}
-                          }
-                        }}
+                        onClick={() => setTaskToDelete(selectedTask)}
                         className="text-[#A21F1F] hover:bg-[#A21F1F]/10 p-2 border border-transparent hover:border-[#A21F1F] transition-colors"
                         title="Delete task"
                       >
@@ -510,7 +507,7 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
                   <div className="flex items-center gap-4">
                     <div>
                       Assignee:{' '}
-                      <span className="text-[#111111]">{selectedTask.assignees?.length > 0 ? selectedTask.assignees.map((a: any) => a.name).join(', ') : 'Unassigned'}</span>
+                      <span className="text-[#111111]">{selectedTask.assignee ? selectedTask.assignee.name : 'Unassigned'}</span>
                     </div>
                     <div>
                       Start:{' '}
@@ -540,11 +537,11 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
                     {comments.map((c: any) => (
                       <div key={c.id} className="flex gap-4">
                         <div className="h-8 w-8 shrink-0 bg-[#C6A15B] flex items-center justify-center font-bold text-[#111111] text-xs">
-                          {c.user.name.charAt(0).toUpperCase()}
+                          {c.author?.name?.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1">
                           <div className="flex items-baseline gap-2 mb-1">
-                            <span className="font-bold text-[13px] text-[#111111]">{c.user.name}</span>
+                            <span className="font-bold text-[13px] text-[#111111]">{c.author?.name}</span>
                             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{format(new Date(c.createdAt), 'h:mm a')}</span>
                           </div>
                           <div className="text-[13px] text-slate-700 bg-slate-50 p-3 border border-[#D1CDC4]">
@@ -579,6 +576,48 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Task Confirmation Dialog */}
+      <Dialog open={!!taskToDelete} onOpenChange={(open) => !open && setTaskToDelete(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete Task</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-[#111111]">
+              Are you sure you want to delete <span className="font-bold">"{taskToDelete?.title}"</span>?
+            </p>
+            <p className="text-slate-500 text-sm mt-2">This action cannot be undone. All comments on this task will also be deleted.</p>
+          </div>
+          <div className="flex justify-end gap-3 mt-2">
+            <Button variant="outline" onClick={() => setTaskToDelete(null)} disabled={isDeleting}>Cancel</Button>
+            <Button
+              className="bg-red-500 hover:bg-red-600 text-white"
+              disabled={isDeleting}
+              onClick={async () => {
+                setIsDeleting(true);
+                try {
+                  const res = await apiFetch(`/api/tasks/${taskToDelete.id}`, { method: 'DELETE' });
+                  if (res.ok) {
+                    queryClient.invalidateQueries({ queryKey: ['myTasks'] });
+                    setSelectedTask(null);
+                    setTaskToDelete(null);
+                    toast.success('Task deleted');
+                  } else {
+                    toast.error('Failed to delete task');
+                  }
+                } catch {
+                  toast.error('Failed to delete task');
+                } finally {
+                  setIsDeleting(false);
+                }
+              }}
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

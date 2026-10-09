@@ -33,13 +33,13 @@ export function Dashboard() {
     queryKey: ['taskComments', selectedTask?.id],
     queryFn: async () => {
       if (!selectedTask) return [];
-      const res = await apiFetch(`/api/tasks/${selectedTask.id}/comments`, {
-        
-      });
+      const res = await apiFetch(`/api/tasks/${selectedTask.id}/comments`);
       if (!res.ok) throw new Error('Failed to fetch comments');
-      return res.json();
+      const json = await res.json();
+      return json.data?.comments || [];
     },
-    enabled: !!selectedTask});
+    enabled: !!selectedTask
+  });
 
   const sendInviteMutation = useMutation({
     mutationFn: async (email: string) => {
@@ -81,7 +81,7 @@ export function Dashboard() {
   if (isLoading) return <div className="p-8 text-center text-muted-foreground animate-pulse">Loading dashboard...</div>;
   if (!data || !data.stats) return <div className="p-8 text-center text-destructive">Failed to load dashboard data.</div>;
 
-  const { stats, overdueTasks = [], ongoingTasks = [], pendingTasks = [], notifications = [] } = data;
+  const { stats, overdueTasks = [], ongoingTasks = [], pendingTasks = [], activityLog = [] } = data;
 
   const handleSendComment = (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,19 +102,41 @@ export function Dashboard() {
         <div className="bg-white border border-[#D1CDC4] p-4 flex-1">
           <div className="text-xs uppercase tracking-widest text-slate-500 font-bold mb-2">Active Projects</div>
           <div className="text-4xl font-bold mb-1">{stats.activeProjects < 10 ? `0${stats.activeProjects}` : stats.activeProjects}</div>
-          <div className="w-full h-1 bg-slate-100 mt-4">
-            <div className="h-full bg-[#1F4D3A]" style={{ width: '100%' }}></div>
+          <div className="w-full h-1.5 bg-slate-100 mt-4 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-[#1F4D3A] rounded-full transition-all duration-700" 
+              style={{ width: stats.totalProjects > 0 ? `${Math.round((stats.activeProjects / stats.totalProjects) * 100)}%` : '0%' }}
+            />
+          </div>
+          <div className="text-[10px] text-slate-400 mt-1 font-bold uppercase tracking-widest">
+            {stats.totalProjects > 0 ? `${Math.round((stats.activeProjects / stats.totalProjects) * 100)}% active` : 'No projects'}
           </div>
         </div>
         <div className="bg-white border border-[#D1CDC4] p-4 flex-1">
           <div className="text-xs uppercase tracking-widest text-slate-500 font-bold mb-2">My Open Tasks</div>
           <div className="text-4xl font-bold mb-1">{stats.openTasks < 10 ? `0${stats.openTasks}` : stats.openTasks}</div>
-          <div className="text-xs text-emerald-700 mt-4 font-bold">Needs attention</div>
+          <div className="w-full h-1.5 bg-slate-100 mt-4 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-[#C6A15B] rounded-full transition-all duration-700" 
+              style={{ width: stats.totalTasks > 0 ? `${Math.round((stats.openTasks / stats.totalTasks) * 100)}%` : '0%' }}
+            />
+          </div>
+          <div className="text-[10px] text-slate-400 mt-1 font-bold uppercase tracking-widest">
+            {stats.totalTasks > 0 ? `${Math.round((stats.openTasks / stats.totalTasks) * 100)}% open` : 'No tasks'}
+          </div>
         </div>
         <div className="bg-white border border-[#D1CDC4] p-4 flex-1">
           <div className="text-xs uppercase tracking-widest text-slate-500 font-bold mb-2">Completed Tasks</div>
           <div className="text-4xl font-bold mb-1 text-slate-700">{stats.completedTasks < 10 ? `0${stats.completedTasks}` : stats.completedTasks}</div>
-          <div className="text-xs text-slate-400 mt-4">Recent activity</div>
+          <div className="w-full h-1.5 bg-slate-100 mt-4 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-emerald-500 rounded-full transition-all duration-700" 
+              style={{ width: stats.totalTasks > 0 ? `${Math.round((stats.completedTasks / stats.totalTasks) * 100)}%` : '0%' }}
+            />
+          </div>
+          <div className="text-[10px] text-emerald-700 mt-1 font-bold uppercase tracking-widest">
+            {stats.totalTasks > 0 ? `${Math.round((stats.completedTasks / stats.totalTasks) * 100)}% done` : 'No tasks'}
+          </div>
         </div>
         <div className="bg-[#C6A15B] text-[#111111] p-4 flex-1 flex flex-col justify-between">
           <div>
@@ -206,7 +228,7 @@ export function Dashboard() {
                     {task.title}
                   </div>
                   <div className="text-slate-500 truncate pr-4">
-                    {task.project.title}
+                    {task.project?.name}
                   </div>
                   <div>
                     <span className={`px-2 py-[2px] text-[10px] font-bold uppercase border border-current ${task.status === 'COMPLETED' ? 'border-[#111111] bg-[#111111] text-white' : 'border-slate-300'}`}>
@@ -226,14 +248,14 @@ export function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="col-span-1 lg:col-span-2 bg-white border border-[#D1CDC4] p-6 text-foreground min-h-[300px]">
           <div className="text-xs uppercase tracking-widest text-slate-500 font-bold mb-4">Activity Log</div>
-          <div className="space-y-4">
-            {notifications.length === 0 ? (
+          <div className="space-y-3">
+            {activityLog.length === 0 ? (
               <div className="text-sm text-slate-500 py-4">No recent activity.</div>
             ) : (
-              notifications.map((notif: any) => (
-                <div key={notif.id} className="text-xs flex justify-between border-b border-[#D1CDC4] pb-3 gap-4">
-                  <span className="text-slate-800 font-medium">{notif.message}</span>
-                  <span className="text-slate-500 shrink-0 font-medium">{format(new Date(notif.createdAt), 'h:mm a')}</span>
+              activityLog.map((entry: any) => (
+                <div key={entry.id} className="text-xs flex justify-between border-b border-[#D1CDC4] pb-3 gap-4">
+                  <span className="text-slate-800 font-medium">{entry.message}</span>
+                  <span className="text-slate-400 shrink-0 font-medium tabular-nums">{format(new Date(entry.createdAt), 'MMM d, h:mm a')}</span>
                 </div>
               ))
             )}
@@ -271,7 +293,7 @@ export function Dashboard() {
                   <div className="flex items-center gap-4">
                     <div>
                       Assignee:{' '}
-                      <span className="text-[#111111]">{selectedTask.assignees?.length > 0 ? selectedTask.assignees.map((a: any) => a.name).join(', ') : 'Unassigned'}</span>
+                      <span className="text-[#111111]">{selectedTask.assignee ? selectedTask.assignee.name : 'Unassigned'}</span>
                     </div>
                     <div>
                       Start:{' '}
@@ -301,11 +323,11 @@ export function Dashboard() {
                     {comments.map((c: any) => (
                       <div key={c.id} className="flex gap-4">
                         <div className="h-8 w-8 shrink-0 bg-[#C6A15B] flex items-center justify-center font-bold text-[#111111] text-xs overflow-hidden">
-                          {c.user.name.charAt(0).toUpperCase()}
+                          {c.author?.name?.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1">
                           <div className="flex items-baseline gap-2 mb-1">
-                            <span className="font-bold text-[13px] text-[#111111]">{c.user.name}</span>
+                            <span className="font-bold text-[13px] text-[#111111]">{c.author?.name}</span>
                             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{format(new Date(c.createdAt), 'h:mm a')}</span>
                           </div>
                           <div className="text-[13px] text-slate-700 bg-slate-50 p-3 border border-[#D1CDC4]">
