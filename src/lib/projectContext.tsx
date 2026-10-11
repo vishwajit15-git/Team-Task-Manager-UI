@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from './api';
+import { useAuth } from './auth';
 
 type Project = {
   id: string;
@@ -20,26 +21,35 @@ type ProjectContextType = {
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
   const [activeProject, setActiveProjectState] = useState<Project | null>(null);
 
   const { data: projects = [], isLoading } = useQuery({
-    queryKey: ['projects'],
+    queryKey: ['projects', user?.id],
     queryFn: async () => {
       const res = await apiFetch('/api/projects');
       if (!res.ok) throw new Error('Failed to fetch projects');
       const data = await res.json();
       return data.data.projects || [];
-    }
+    },
+    enabled: !!user  // only fetch when logged in
   });
 
-  // On first load, restore from localStorage or default to first project
+  // Reset active project when user logs out
   useEffect(() => {
-    if (projects.length > 0 && !activeProject) {
+    if (!user) {
+      setActiveProjectState(null);
+    }
+  }, [user]);
+
+  // On first load / after login, restore from localStorage or default to first project
+  useEffect(() => {
+    if (user && projects.length > 0 && !activeProject) {
       const savedId = localStorage.getItem('activeProjectId');
       const saved = projects.find((p: Project) => p.id === savedId);
       setActiveProjectState(saved || projects[0]);
     }
-  }, [projects, activeProject]);
+  }, [user, projects, activeProject]);
 
   const setActiveProject = (project: Project | null) => {
     setActiveProjectState(project);

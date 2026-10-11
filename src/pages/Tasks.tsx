@@ -219,26 +219,26 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[#D1CDC4] pb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-[#D1CDC4] pb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-[#111111] flex items-center gap-3">
-            <CheckSquare className="h-8 w-8 text-[#1F4D3A]" />
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#111111] flex items-center gap-3">
+            <CheckSquare className="h-7 w-7 sm:h-8 sm:w-8 text-[#1F4D3A]" />
             Tasks
           </h1>
-          <p className="text-slate-500 mt-1">{user?.role === 'ADMIN' ? 'All tasks in the workspace.' : 'Tasks assigned to you.'}</p>
+          <p className="text-slate-500 mt-1 text-sm">{user?.role === 'ADMIN' ? 'All tasks in the workspace.' : 'Tasks assigned to you.'}</p>
         </div>
         
         {user?.role === 'ADMIN' && (
-          <div className="flex gap-4">
+          <div className="flex gap-4 w-full sm:w-auto">
             {!currentProject ? (
               <Dialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen}>
                 <DialogTrigger render={
-                  <Button className="shrink-0 bg-[#1F4D3A] hover:bg-[#1F4D3A]/90 text-white font-bold uppercase tracking-widest text-xs px-6 py-5 rounded-none border border-[#1F4D3A]">
+                  <Button className="w-full sm:w-auto shrink-0 bg-[#1F4D3A] hover:bg-[#1F4D3A]/90 text-white font-bold uppercase tracking-widest text-xs px-6 py-5 rounded-none border border-[#1F4D3A]">
                     <FolderGit2 className="h-4 w-4 mr-2" />
                     Setup Project
                   </Button>
                 } />
-                <DialogContent className="sm:max-w-[425px]">
+                <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[425px]">
                   <DialogHeader>
                     <DialogTitle>Setup Initial Project</DialogTitle>
                   </DialogHeader>
@@ -248,7 +248,7 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
                       <Input id="projectTitle" value={projectTitle} onChange={(e) => setProjectTitle(e.target.value)} required />
                     </div>
                     <DialogFooter>
-                      <Button type="submit" disabled={createProjectMutation.isPending} className="bg-[#1F4D3A] text-white">Setup</Button>
+                      <Button type="submit" disabled={createProjectMutation.isPending} className="w-full sm:w-auto bg-[#1F4D3A] text-white">Setup</Button>
                     </DialogFooter>
                   </form>
                 </DialogContent>
@@ -256,14 +256,14 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
             ) : (
               <Dialog open={taskDialogOpen} onOpenChange={setTaskDialogOpen}>
                 <DialogTrigger render={
-                  <Button className="shrink-0 bg-[#C6A15B] hover:bg-[#C6A15B]/90 text-[#111111] font-bold uppercase tracking-widest text-xs px-6 py-5 rounded-none border border-[#C6A15B]">
+                  <Button className="w-full sm:w-auto shrink-0 bg-[#C6A15B] hover:bg-[#C6A15B]/90 text-[#111111] font-bold uppercase tracking-widest text-xs px-6 py-5 rounded-none border border-[#C6A15B]">
                     <Plus className="h-4 w-4 mr-2" />
                     New Task
                   </Button>
                 } />
-                <DialogContent className="sm:max-w-[500px]">
+                <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                   <DialogHeader>
-                    <DialogTitle>Create New Task</DialogTitle>
+                    <DialogTitle className="text-xl sm:text-2xl font-bold">Create New Task</DialogTitle>
                   </DialogHeader>
                   <form onSubmit={(e) => { 
                     e.preventDefault(); 
@@ -281,7 +281,7 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
                       <Label htmlFor="description">Description (Optional)</Label>
                       <Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} />
                     </div>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div className="space-y-2">
                         <Label>Priority</Label>
                         <Select value={priority} onValueChange={setPriority}>
@@ -313,7 +313,7 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
                               : "Select users"}
                           </button>
                         } />
-                        <PopoverContent className="w-full p-2" align="start">
+                        <PopoverContent className="w-[85vw] sm:w-[450px] p-2 max-h-60 overflow-y-auto" align="start">
                           <div className="space-y-2">
                             {users.map((u: any) => (
                               <label key={u.id} className="flex items-center space-x-2 p-1 hover:bg-slate-50 cursor-pointer rounded">
@@ -330,8 +330,8 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
                         </PopoverContent>
                       </Popover>
                     </div>
-                    <DialogFooter>
-                      <Button type="submit" disabled={createTaskMutation.isPending} className="bg-[#111111] text-white hover:bg-[#222222]">Create Task</Button>
+                    <DialogFooter className="flex-col sm:flex-row gap-2">
+                      <Button type="submit" disabled={createTaskMutation.isPending} className="w-full sm:w-auto bg-[#111111] text-white hover:bg-[#222222]">Create Task</Button>
                     </DialogFooter>
                   </form>
                 </DialogContent>
@@ -342,7 +342,7 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
       </div>
 
       <div className="border border-[#D1CDC4] bg-white">
-        <div className="hidden md:grid grid-cols-[24px_1fr_100px_120px] padding-4 bg-slate-50 font-bold text-xs uppercase tracking-wider border-b border-[#D1CDC4] p-3 px-4">
+        <div className="hidden md:grid grid-cols-[24px_1fr_100px_120px] bg-slate-50 font-bold text-xs uppercase tracking-wider border-b border-[#D1CDC4] p-3 px-4">
           <div></div>
           <div>Task Description</div>
           <div>Status</div>
@@ -356,21 +356,56 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
             <div 
               key={task.id} 
               onClick={() => setSelectedTask(task)}
-              className="grid grid-cols-[24px_1fr] md:grid-cols-[24px_1fr_100px_120px] gap-y-2 md:gap-y-0 p-3 px-4 border-b border-[#D1CDC4] text-[13px] hover:bg-[#FAF9F6] transition-colors items-center cursor-pointer"
+              className="border-b border-[#D1CDC4] text-[13px] hover:bg-[#FAF9F6] transition-colors cursor-pointer group"
             >
-              <div className="text-slate-400">
-                {task.status === 'COMPLETED' ? '☑' : '☐'}
+              {/* Desktop view */}
+              <div className="hidden md:grid grid-cols-[24px_1fr_100px_120px] p-3 px-4 items-center">
+                <div className="text-slate-400">
+                  {task.status === 'COMPLETED' ? '☑' : '☐'}
+                </div>
+                <div className="font-medium text-foreground truncate pr-4 text-[#111111] group-hover:text-[#1F4D3A] transition-colors">
+                  {task.title}
+                </div>
+                <div>
+                  <span className={`px-2 py-[2px] text-[10px] font-bold uppercase border border-current ${task.status === 'COMPLETED' ? 'border-[#111111] bg-[#111111] text-white' : 'border-slate-300'}`}>
+                    {task.status.replace('_', ' ')}
+                  </span>
+                </div>
+                <div className={`font-bold text-[11px] uppercase tracking-widest ${new Date(task.dueDate) < new Date() && task.status !== 'COMPLETED' ? 'text-[#A21F1F]' : 'text-slate-500'}`}>
+                  {task.dueDate ? format(new Date(task.dueDate), 'MMM d') : 'None'}
+                </div>
               </div>
-              <div className="font-medium text-foreground truncate pr-4 text-[#111111] hover:text-[#1F4D3A]">
-                {task.title}
-              </div>
-              <div>
-                <span className={`px-2 py-[2px] text-[10px] font-bold uppercase border border-current ${task.status === 'COMPLETED' ? 'border-[#111111] bg-[#111111] text-white' : 'border-slate-300'}`}>
-                  {task.status.replace('_', ' ')}
-                </span>
-              </div>
-              <div className={`font-bold text-[11px] uppercase tracking-widest ${new Date(task.dueDate) < new Date() && task.status !== 'COMPLETED' ? 'text-[#A21F1F]' : 'text-slate-500'}`}>
-                {task.dueDate ? format(new Date(task.dueDate), 'MMM d') : 'None'}
+
+              {/* Mobile view */}
+              <div className="md:hidden p-3.5 px-4 space-y-2">
+                <div className="flex items-start gap-2.5">
+                  <span className="text-base text-slate-400 leading-none pt-0.5 shrink-0">
+                    {task.status === 'COMPLETED' ? '☑' : '☐'}
+                  </span>
+                  <span className="font-semibold text-sm text-[#111111] group-hover:text-[#1F4D3A] transition-colors break-words flex-1 leading-snug">
+                    {task.title}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between pl-6 gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className={`px-2 py-0.5 text-[10px] font-bold uppercase border ${task.status === 'COMPLETED' ? 'border-[#111111] bg-[#111111] text-white' : 'border-slate-300 text-slate-700 bg-white'}`}>
+                      {task.status.replace('_', ' ')}
+                    </span>
+                    {task.priority && (
+                      <span className={`px-1.5 py-0.5 text-[9px] font-bold uppercase border ${task.priority === 'CRITICAL' || task.priority === 'HIGH' ? 'border-[#A21F1F] text-[#A21F1F]' : task.priority === 'MEDIUM' ? 'border-[#C6A15B] text-[#C6A15B]' : 'border-[#1F4D3A] text-[#1F4D3A]'}`}>
+                        {task.priority}
+                      </span>
+                    )}
+                    {task.assignee && (
+                      <span className="text-[11px] text-slate-500 font-medium">
+                        · {task.assignee.name}
+                      </span>
+                    )}
+                  </div>
+                  <div className={`font-bold text-[11px] uppercase tracking-wider shrink-0 ${new Date(task.dueDate) < new Date() && task.status !== 'COMPLETED' ? 'text-[#A21F1F]' : 'text-slate-500'}`}>
+                    {task.dueDate ? `Due ${format(new Date(task.dueDate), 'MMM d')}` : 'No due'}
+                  </div>
+                </div>
               </div>
             </div>
           ))
@@ -383,13 +418,13 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
           setIsEditingTask(false);
         }
       }}>
-        <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden rounded-none border-[#D1CDC4]">
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[600px] p-0 gap-0 overflow-hidden rounded-none border-[#D1CDC4]">
           {selectedTask && (
-            <div className="flex flex-col h-[80vh] max-h-[800px]">
+            <div className="flex flex-col h-[85vh] sm:h-[80vh] max-h-[800px]">
               {isEditingTask ? (
-                <div className="p-6 h-full flex flex-col">
-                  <DialogTitle className="text-2xl font-bold tracking-tight text-[#111111] mb-6">Edit Task</DialogTitle>
-                  <div className="flex-1 overflow-y-auto pr-2">
+                <div className="p-4 sm:p-6 h-full flex flex-col">
+                  <DialogTitle className="text-xl sm:text-2xl font-bold tracking-tight text-[#111111] mb-4 sm:mb-6">Edit Task</DialogTitle>
+                  <div className="flex-1 overflow-y-auto pr-1 sm:pr-2">
                     <form id="edit-task-form" onSubmit={(e) => { 
                       e.preventDefault(); 
                       const payload: any = { title, description, priority };
@@ -406,7 +441,7 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
                         <Label htmlFor="edit-description">Description</Label>
                         <Input id="edit-description" value={description} onChange={(e) => setDescription(e.target.value)} />
                       </div>
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="space-y-2">
                           <Label>Priority</Label>
                           <Select value={priority} onValueChange={setPriority}>
@@ -438,7 +473,7 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
                                 : "Select users"}
                             </button>
                           } />
-                          <PopoverContent className="w-full p-2" align="start">
+                          <PopoverContent className="w-[85vw] sm:w-[450px] p-2 max-h-60 overflow-y-auto" align="start">
                             <div className="space-y-2">
                               {users.map((u: any) => (
                                 <label key={u.id} className="flex items-center space-x-2 p-1 hover:bg-slate-50 cursor-pointer rounded">
@@ -457,126 +492,126 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
                       </div>
                     </form>
                   </div>
-                  <div className="pt-4 border-t border-[#D1CDC4] flex justify-end gap-2 mt-4">
+                  <div className="pt-4 border-t border-[#D1CDC4] flex flex-col-reverse sm:flex-row justify-end gap-2 mt-4">
                     <Button type="button" variant="outline" onClick={() => setIsEditingTask(false)}>Cancel</Button>
                     <Button type="submit" form="edit-task-form" disabled={editTaskMutation.isPending} className="bg-[#111111] text-white hover:bg-[#222222]">Save Changes</Button>
                   </div>
                 </div>
               ) : (
                 <>
-                  <div className="p-6 border-b border-[#D1CDC4] bg-slate-50">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className={`px-2 py-[2px] text-[10px] font-bold uppercase border ${selectedTask.priority === 'CRITICAL' || selectedTask.priority === 'HIGH' ? 'border-[#A21F1F] text-[#A21F1F]' : selectedTask.priority === 'MEDIUM' ? 'border-[#C6A15B] text-[#C6A15B]' : 'border-[#1F4D3A] text-[#1F4D3A]'}`}>
-                    {selectedTask.priority}
-                  </span>
-                  <select 
-                    value={selectedTask.status} 
-                    onChange={(e) => {
-                      setSelectedTask({ ...selectedTask, status: e.target.value });
-                      updateTaskStatusMutation.mutate({ taskId: selectedTask.id, status: e.target.value });
-                    }}
-                    className={`px-2 py-[2px] text-[10px] font-bold uppercase border outline-none cursor-pointer ${selectedTask.status === 'COMPLETED' ? 'border-[#1F4D3A] bg-[#1F4D3A] text-white' : 'border-slate-300 text-slate-600 bg-white'}`}
-                  >
-                    <option value="TODO">TODO</option>
-                    <option value="IN_PROGRESS">IN PROGRESS</option>
-                    <option value="REVIEW">REVIEW</option>
-                    <option value="COMPLETED">COMPLETED</option>
-                  </select>
-                </div>
-                <div className="flex items-center justify-between">
-                  <DialogTitle className="text-2xl font-bold text-[#111111] mb-2">{selectedTask.title}</DialogTitle>
-                  {user?.role === 'ADMIN' && (
-                    <div className="flex gap-2">
-                      <button 
-                        onClick={handleEditClick}
-                        className="text-slate-500 hover:bg-slate-200 p-2 border border-transparent hover:border-slate-300 transition-colors"
-                        title="Edit task"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button 
-                        onClick={() => setTaskToDelete(selectedTask)}
-                        className="text-[#A21F1F] hover:bg-[#A21F1F]/10 p-2 border border-transparent hover:border-[#A21F1F] transition-colors"
-                        title="Delete task"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <div className="text-[13px] text-slate-600">
-                  {selectedTask.description || 'No description provided.'}
-                </div>
-                <div className="mt-4 pt-4 border-t border-[#D1CDC4] flex items-center justify-between text-xs font-bold uppercase tracking-widest text-slate-500">
-                  <div className="flex items-center gap-4">
-                    <div>
-                      Assignee:{' '}
-                      <span className="text-[#111111]">{selectedTask.assignee ? selectedTask.assignee.name : 'Unassigned'}</span>
-                    </div>
-                    <div>
-                      Start:{' '}
-                      <span className="text-[#111111]">
-                        {selectedTask.startDate ? format(new Date(selectedTask.startDate), 'MMM d, yyyy') : 'No date'}
+                  <div className="p-4 sm:p-6 border-b border-[#D1CDC4] bg-slate-50">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`px-2 py-[2px] text-[10px] font-bold uppercase border ${selectedTask.priority === 'CRITICAL' || selectedTask.priority === 'HIGH' ? 'border-[#A21F1F] text-[#A21F1F]' : selectedTask.priority === 'MEDIUM' ? 'border-[#C6A15B] text-[#C6A15B]' : 'border-[#1F4D3A] text-[#1F4D3A]'}`}>
+                        {selectedTask.priority}
                       </span>
+                      <select 
+                        value={selectedTask.status} 
+                        onChange={(e) => {
+                          setSelectedTask({ ...selectedTask, status: e.target.value });
+                          updateTaskStatusMutation.mutate({ taskId: selectedTask.id, status: e.target.value });
+                        }}
+                        className={`px-2 py-[2px] text-[10px] font-bold uppercase border outline-none cursor-pointer ${selectedTask.status === 'COMPLETED' ? 'border-[#1F4D3A] bg-[#1F4D3A] text-white' : 'border-slate-300 text-slate-600 bg-white'}`}
+                      >
+                        <option value="TODO">TODO</option>
+                        <option value="IN_PROGRESS">IN PROGRESS</option>
+                        <option value="REVIEW">REVIEW</option>
+                        <option value="COMPLETED">COMPLETED</option>
+                      </select>
                     </div>
-                    <div>
-                      Due:{' '}
-                      <span className={new Date(selectedTask.dueDate) < new Date() && selectedTask.status !== 'COMPLETED' ? 'text-[#A21F1F]' : 'text-[#111111]'}>
-                        {selectedTask.dueDate ? format(new Date(selectedTask.dueDate), 'MMM d, yyyy') : 'No date'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-6 bg-white space-y-6">
-                <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500 border-b border-[#D1CDC4] pb-2">Discussion</h4>
-                
-                {isLoadingComments ? (
-                  <div className="text-center text-slate-500 py-4 font-bold uppercase tracking-widest text-[10px]">Loading comments...</div>
-                ) : comments.length === 0 ? (
-                  <div className="text-center text-slate-500 py-8 font-bold uppercase tracking-widest text-[10px]">No comments yet.</div>
-                ) : (
-                  <div className="space-y-4">
-                    {comments.map((c: any) => (
-                      <div key={c.id} className="flex gap-4">
-                        <div className="h-8 w-8 shrink-0 bg-[#C6A15B] flex items-center justify-center font-bold text-[#111111] text-xs">
-                          {c.author?.name?.charAt(0).toUpperCase()}
+                    <div className="flex items-start justify-between gap-3">
+                      <DialogTitle className="text-xl sm:text-2xl font-bold text-[#111111] mb-2 break-words flex-1 min-w-0">{selectedTask.title}</DialogTitle>
+                      {user?.role === 'ADMIN' && (
+                        <div className="flex gap-1 sm:gap-2 shrink-0">
+                          <button 
+                            onClick={handleEditClick}
+                            className="text-slate-500 hover:bg-slate-200 p-2 border border-transparent hover:border-slate-300 transition-colors"
+                            title="Edit task"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                          <button 
+                            onClick={() => setTaskToDelete(selectedTask)}
+                            className="text-[#A21F1F] hover:bg-[#A21F1F]/10 p-2 border border-transparent hover:border-[#A21F1F] transition-colors"
+                            title="Delete task"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </div>
-                        <div className="flex-1">
-                          <div className="flex items-baseline gap-2 mb-1">
-                            <span className="font-bold text-[13px] text-[#111111]">{c.author?.name}</span>
-                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{format(new Date(c.createdAt), 'h:mm a')}</span>
-                          </div>
-                          <div className="text-[13px] text-slate-700 bg-slate-50 p-3 border border-[#D1CDC4]">
-                            {c.content}
-                          </div>
+                      )}
+                    </div>
+                    <div className="text-[13px] text-slate-600 break-words">
+                      {selectedTask.description || 'No description provided.'}
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-[#D1CDC4] text-xs font-bold uppercase tracking-widest text-slate-500">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                        <div>
+                          Assignee:{' '}
+                          <span className="text-[#111111]">{selectedTask.assignee ? selectedTask.assignee.name : 'Unassigned'}</span>
+                        </div>
+                        <div>
+                          Start:{' '}
+                          <span className="text-[#111111]">
+                            {selectedTask.startDate ? format(new Date(selectedTask.startDate), 'MMM d, yyyy') : 'No date'}
+                          </span>
+                        </div>
+                        <div>
+                          Due:{' '}
+                          <span className={new Date(selectedTask.dueDate) < new Date() && selectedTask.status !== 'COMPLETED' ? 'text-[#A21F1F]' : 'text-[#111111]'}>
+                            {selectedTask.dueDate ? format(new Date(selectedTask.dueDate), 'MMM d, yyyy') : 'No date'}
+                          </span>
                         </div>
                       </div>
-                    ))}
+                    </div>
                   </div>
-                )}
-              </div>
 
-              <div className="p-4 border-t border-[#D1CDC4] bg-white">
-                <form onSubmit={handleSendComment} className="flex gap-2">
-                  <input
-                    type="text"
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                    placeholder="Add a comment..."
-                    className="flex-1 border border-[#D1CDC4] px-4 py-2 text-[13px] outline-none focus:border-[#C6A15B] transition-colors"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!comment.trim() || sendCommentMutation.isPending}
-                    className="flex-shrink-0 px-4 flex items-center justify-center bg-[#C6A15B] text-[#111111] hover:bg-[#C6A15B]/90 disabled:opacity-50 transition-colors border border-[#C6A15B] font-bold text-[10px] uppercase tracking-widest"
-                  >
-                    Post
-                  </button>
-                </form>
-              </div>
-              </>
+                  <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-white space-y-6">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500 border-b border-[#D1CDC4] pb-2">Discussion</h4>
+                    
+                    {isLoadingComments ? (
+                      <div className="text-center text-slate-500 py-4 font-bold uppercase tracking-widest text-[10px]">Loading comments...</div>
+                    ) : comments.length === 0 ? (
+                      <div className="text-center text-slate-500 py-8 font-bold uppercase tracking-widest text-[10px]">No comments yet.</div>
+                    ) : (
+                      <div className="space-y-4">
+                        {comments.map((c: any) => (
+                          <div key={c.id} className="flex gap-3 sm:gap-4">
+                            <div className="h-8 w-8 shrink-0 bg-[#C6A15B] flex items-center justify-center font-bold text-[#111111] text-xs">
+                              {c.author?.name?.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-baseline gap-2 mb-1 flex-wrap">
+                                <span className="font-bold text-[13px] text-[#111111] truncate max-w-[150px] sm:max-w-none">{c.author?.name}</span>
+                                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{format(new Date(c.createdAt), 'h:mm a')}</span>
+                              </div>
+                              <div className="text-[13px] text-slate-700 bg-slate-50 p-3 border border-[#D1CDC4] break-words">
+                                {c.content}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="p-3 sm:p-4 border-t border-[#D1CDC4] bg-white">
+                    <form onSubmit={handleSendComment} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={comment}
+                        onChange={(e) => setComment(e.target.value)}
+                        placeholder="Add a comment..."
+                        className="flex-1 border border-[#D1CDC4] px-3 sm:px-4 py-2 text-sm sm:text-[13px] outline-none focus:border-[#C6A15B] transition-colors"
+                      />
+                      <button
+                        type="submit"
+                        disabled={!comment.trim() || sendCommentMutation.isPending}
+                        className="flex-shrink-0 px-4 flex items-center justify-center bg-[#C6A15B] text-[#111111] hover:bg-[#C6A15B]/90 disabled:opacity-50 transition-colors border border-[#C6A15B] font-bold text-[10px] uppercase tracking-widest"
+                      >
+                        Post
+                      </button>
+                    </form>
+                  </div>
+                </>
               )}
             </div>
           )}
@@ -585,7 +620,7 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
 
       {/* Delete Task Confirmation Dialog */}
       <Dialog open={!!taskToDelete} onOpenChange={(open) => !open && setTaskToDelete(null)}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Delete Task</DialogTitle>
           </DialogHeader>
@@ -595,7 +630,7 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
             </p>
             <p className="text-slate-500 text-sm mt-2">This action cannot be undone. All comments on this task will also be deleted.</p>
           </div>
-          <div className="flex justify-end gap-3 mt-2">
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-2">
             <Button variant="outline" onClick={() => setTaskToDelete(null)} disabled={isDeleting}>Cancel</Button>
             <Button
               className="bg-red-500 hover:bg-red-600 text-white"

@@ -38,6 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('activeProjectId');
     await apiFetch('/api/auth/logout', { method: 'POST' });
     setUser(null);
     window.location.reload();

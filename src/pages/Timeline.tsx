@@ -12,6 +12,7 @@ import { useProject } from '../lib/projectContext';
 
 export function Timeline() {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
   const { activeProject } = useProject();
 
   const { data: tasks = [], isLoading } = useQuery({
@@ -135,6 +136,16 @@ export function Timeline() {
     }
   };
 
+  const getTaskGlow = (task: any, overdue: boolean) => {
+    if (overdue) return '0 0 0 2px rgba(239,68,68,0.3), 0 0 16px 4px rgba(239,68,68,0.35)';
+    switch (task.status) {
+      case 'COMPLETED': return '0 0 0 2px rgba(16,185,129,0.3), 0 0 16px 4px rgba(16,185,129,0.35)';
+      case 'IN_PROGRESS': return '0 0 0 2px rgba(59,130,246,0.3), 0 0 16px 4px rgba(59,130,246,0.35)';
+      case 'REVIEW': return '0 0 0 2px rgba(245,158,11,0.3), 0 0 16px 4px rgba(245,158,11,0.35)';
+      default: return '0 0 0 2px rgba(100,116,139,0.2), 0 0 14px 3px rgba(100,116,139,0.25)';
+    }
+  };
+
   if (!activeProject) {
     return <div className="p-8 text-center text-slate-500 font-bold uppercase tracking-widest text-xs">Please set up a project to view the timeline.</div>;
   }
@@ -219,32 +230,27 @@ export function Timeline() {
                   {weekTasks.map((t, index) => {
                     const taskOverdue = isOverdue(t.task);
                     const colorClasses = getTaskColors(t.task);
+                    const glowShadow = getTaskGlow(t.task, taskOverdue);
                     
                     return (
-                      <div
+                      <GanttBar
                         key={index}
-                        className={`absolute h-8 px-2 text-xs font-medium flex items-center justify-between border pointer-events-auto cursor-pointer shadow-sm hover:shadow transition-all ${colorClasses}`}
-                        style={{
+                        taskId={t.task.id}
+                        colorClasses={colorClasses}
+                        glowShadow={glowShadow}
+                        posStyle={{
                           left: `calc(${(t.startOffset / 7) * 100}% + ${t.startOffset > 0 ? 4 : 0}px)`,
                           width: `calc(${(t.duration / 7) * 100}% - ${t.startOffset > 0 ? 4 : 0}px - ${t.startOffset + t.duration < 7 ? 4 : 0}px)`,
                           top: `${t.trackIndex * 36 + 4}px`,
-                          borderRadius: '6px',
                         }}
-                        title={`${t.task.title} - ${t.task.status}`}
-                      >
-                        <div className="flex items-center gap-2 truncate pointer-events-none select-none min-w-0">
-                          {taskOverdue && <span className="font-bold text-red-600 shrink-0">!</span>}
-                          <span className="truncate font-semibold">{t.task.title}</span>
-                        </div>
-                        {t.task.assignee && (
-                          <div 
-                            className="h-5 w-5 shrink-0 rounded-full bg-black/10 flex items-center justify-center font-bold text-[9px] uppercase border border-black/10"
-                            title={t.task.assignee.name}
-                          >
-                            {t.task.assignee.name.charAt(0)}
-                          </div>
-                        )}
-                      </div>
+                        title={`${t.task.title} — ${t.task.status.replace('_', ' ')}`}
+                        taskOverdue={taskOverdue}
+                        taskTitle={t.task.title}
+                        assigneeName={t.task.assignee?.name}
+                        isHovered={hoveredTaskId === t.task.id}
+                        onHoverEnter={() => setHoveredTaskId(t.task.id)}
+                        onHoverLeave={() => setHoveredTaskId(null)}
+                      />
                     );
                   })}
                 </div>
@@ -253,6 +259,61 @@ export function Timeline() {
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+function GanttBar({
+  taskId: _taskId,
+  colorClasses,
+  glowShadow,
+  posStyle,
+  title,
+  taskOverdue,
+  taskTitle,
+  assigneeName,
+  isHovered,
+  onHoverEnter,
+  onHoverLeave,
+}: {
+  taskId: string;
+  colorClasses: string;
+  glowShadow: string;
+  posStyle: React.CSSProperties;
+  title: string;
+  taskOverdue: boolean;
+  taskTitle: string;
+  assigneeName?: string;
+  isHovered: boolean;
+  onHoverEnter: () => void;
+  onHoverLeave: () => void;
+}) {
+  return (
+    <div
+      className={`absolute h-8 px-2 text-xs font-medium flex items-center justify-between border pointer-events-auto cursor-pointer transition-all duration-200 ${colorClasses}`}
+      style={{
+        ...posStyle,
+        borderRadius: '6px',
+        boxShadow: isHovered ? glowShadow : '0 1px 3px rgba(0,0,0,0.08)',
+        transform: isHovered ? 'translateY(-1px) scaleY(1.05)' : 'translateY(0) scaleY(1)',
+        zIndex: isHovered ? 10 : 1,
+      }}
+      title={title}
+      onMouseEnter={onHoverEnter}
+      onMouseLeave={onHoverLeave}
+    >
+      <div className="flex items-center gap-2 truncate pointer-events-none select-none min-w-0">
+        {taskOverdue && <span className="font-bold text-red-600 shrink-0">!</span>}
+        <span className="truncate font-semibold">{taskTitle}</span>
+      </div>
+      {assigneeName && (
+        <div
+          className="h-5 w-5 shrink-0 rounded-full bg-black/10 flex items-center justify-center font-bold text-[9px] uppercase border border-black/10"
+          title={assigneeName}
+        >
+          {assigneeName.charAt(0)}
+        </div>
+      )}
     </div>
   );
 }

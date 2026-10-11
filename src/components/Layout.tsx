@@ -1,11 +1,11 @@
-import { LayoutDashboard, CheckSquare, FolderGit2, Users, Settings, LogOut, Bell, MessageSquare, Clock, FileText, Menu, Video, BarChart2, Layers } from "lucide-react";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { LayoutDashboard, CheckSquare, FolderGit2, Users, Settings, LogOut, Bell, MessageSquare, Clock, FileText, Menu, Video, BarChart2, Layers, Search, X } from "lucide-react";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { useProject } from "../lib/projectContext";
-import { connectSocket, disconnectSocket, joinProjectRoom } from "../lib/socket";
+import { connectSocket, disconnectSocket, joinProjectRoom, socket } from "../lib/socket";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "../lib/api";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
@@ -16,14 +16,80 @@ import { toast } from "sonner";
 
 export function Layout() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { user, setUser, logout } = useAuth();
-  const { activeProject, setActiveProject } = useProject();
+  const { activeProject, setActiveProject, isLoading: isLoadingProject } = useProject();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [projectTitle, setProjectTitle] = useState("");
   const [deleteStep, setDeleteStep] = useState<0 | 1 | 2>(0);
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
+
+  // Global search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Global Ctrl+K / Cmd+K and Esc listener + click outside listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        setIsSearchOpen(true);
+      }
+      if (e.key === 'Escape') {
+        setIsSearchOpen(false);
+      }
+    };
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setIsSearchOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Fetch tasks and files for search
+  const { data: searchTasks = [] } = useQuery({
+    queryKey: ['search_tasks', activeProject?.id],
+    queryFn: async () => {
+      if (!activeProject) return [];
+      const res = await apiFetch(`/api/tasks?projectId=${activeProject.id}`);
+      if (!res.ok) return [];
+      const json = await res.json();
+      return json.data?.tasks || [];
+    },
+    enabled: !!activeProject && isSearchOpen
+  });
+
+  const { data: searchFiles = [] } = useQuery({
+    queryKey: ['search_files', activeProject?.id],
+    queryFn: async () => {
+      if (!activeProject) return [];
+      const res = await apiFetch(`/api/files?projectId=${activeProject.id}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!activeProject && isSearchOpen
+  });
+
+  const trimmedSearch = searchQuery.trim().toLowerCase();
+  const matchedTasks = trimmedSearch
+    ? searchTasks.filter((t: any) => t.title?.toLowerCase().includes(trimmedSearch) || t.description?.toLowerCase().includes(trimmedSearch)).slice(0, 5)
+    : [];
+  const matchedFiles = trimmedSearch
+    ? searchFiles.filter((f: any) => !f.isFolder && f.name?.toLowerCase().includes(trimmedSearch)).slice(0, 5)
+    : [];
 
   useEffect(() => {
     if (!showSettings) {
@@ -98,6 +164,44 @@ export function Layout() {
     }
   });
 
+  // Real-time notifications via personal socket room
+  useEffect(() => {
+    const handleNewNotification = (notif: any) => {
+      queryClient.setQueryData(['notifications'], (old: any = []) => [notif, ...old]);
+      toast(notif.title || 'New Notification', {
+        description: notif.message,
+      });
+    };
+    socket.on('new_notification', handleNewNotification);
+    return () => { socket.off('new_notification', handleNewNotification); };
+  }, [queryClient]);
+
+  const markAsReadMutation = useMutation({
+    mutationFn: async (notificationId: string) => {
+      const res = await apiFetch(`/api/notifications/${notificationId}/read`, { method: 'PATCH' });
+      if (!res.ok) throw new Error('Failed to mark notification as read');
+      return res.json();
+    },
+    onSuccess: (_, notificationId) => {
+      queryClient.setQueryData(['notifications'], (old: any = []) =>
+        old.map((n: any) => n.id === notificationId ? { ...n, read: true } : n)
+      );
+    }
+  });
+
+  const markAllAsReadMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiFetch('/api/notifications/read-all', { method: 'PATCH' });
+      if (!res.ok) throw new Error('Failed to mark all as read');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.setQueryData(['notifications'], (old: any = []) =>
+        old.map((n: any) => ({ ...n, read: true }))
+      );
+    }
+  });
+
   const currentProject = activeProject;
   
   let totalTasks = 0;
@@ -110,7 +214,7 @@ export function Layout() {
 
   const navItems = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
-    { name: currentProject ? "Tasks" : "New Project", href: "/tasks", icon: currentProject ? CheckSquare : FolderGit2 },
+    { name: (currentProject || user?.role !== 'ADMIN') ? "Tasks" : "New Project", href: "/tasks", icon: (currentProject || user?.role !== 'ADMIN') ? CheckSquare : FolderGit2 },
     { name: "Timeline", href: "/timeline", icon: Clock },
     { name: "Messages", href: "/messages", icon: MessageSquare },
     { name: "Team", href: "/team", icon: Users },
@@ -140,7 +244,9 @@ export function Layout() {
             Workspace
           </div>
           <div className="text-lg font-bold flex items-center gap-2 mb-4">
-             <span>{currentProject ? currentProject.name : 'Setup Required'}</span>
+             <span className={isLoadingProject && !currentProject ? 'text-slate-500 animate-pulse text-sm' : ''}>
+               {currentProject ? currentProject.name : isLoadingProject ? 'Loading...' : 'Setup Required'}
+             </span>
              {currentProject && <div className="w-2 h-2 rounded-full bg-[#C6A15B]"></div>}
           </div>
           
@@ -229,12 +335,12 @@ export function Layout() {
             >
               <Menu className="h-5 w-5" />
             </button>
-            <div className="flex items-center gap-2 text-sm font-bold relative">
+            <div className="hidden sm:flex items-center gap-2 text-sm font-bold relative">
               <span className="text-slate-400">Workspace</span>
               <span className="text-slate-400">/</span>
               
               <div className="flex items-center gap-1 text-[#C6A15B]">
-                {activeProject?.name || 'Main Project'}
+                {activeProject ? activeProject.name : 'Setup Required'}
               </div>
               {activeProject && (
                 <Dialog open={showSettings} onOpenChange={setShowSettings}>
@@ -352,7 +458,117 @@ export function Layout() {
                 {[...navItems, ...moreItems].find(n => location.pathname === n.href || (n.href !== "/" && location.pathname.startsWith(n.href)))?.name || "Workspace"}
               </span>
             </div>
-            <input type="text" placeholder="Search tasks or files..." className="bg-[#F5F1E8] border border-[#D1CDC4] px-[12px] py-[6px] w-[300px] text-[13px] outline-none hidden md:block focus:border-[#C6A15B] transition-colors" />
+            <div ref={searchContainerRef} className="relative hidden md:block">
+              <div className="relative flex items-center">
+                <Search className="absolute left-2.5 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setIsSearchOpen(true);
+                  }}
+                  onFocus={() => setIsSearchOpen(true)}
+                  placeholder="Search tasks or files..."
+                  className="bg-[#F5F1E8] border border-[#D1CDC4] pl-8 pr-16 py-[6px] w-[260px] lg:w-[300px] text-[13px] outline-none focus:border-[#C6A15B] focus:bg-white transition-colors"
+                />
+                {searchQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setIsSearchOpen(false);
+                    }}
+                    className="absolute right-2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                ) : (
+                  <kbd className="absolute right-2 px-1.5 py-0.5 text-[9px] font-bold text-slate-400 bg-white border border-[#D1CDC4] rounded pointer-events-none uppercase">
+                    Ctrl K
+                  </kbd>
+                )}
+              </div>
+
+              {/* Search Results Dropdown */}
+              {isSearchOpen && trimmedSearch && (
+                <div className="absolute top-full left-0 mt-1.5 w-[360px] lg:w-[380px] bg-white border border-[#D1CDC4] shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                  <div className="p-2.5 border-b border-[#D1CDC4] bg-slate-50 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    <span className="truncate pr-2">Results for "{searchQuery}"</span>
+                    <button 
+                      type="button" 
+                      onClick={() => setIsSearchOpen(false)} 
+                      className="text-slate-400 hover:text-slate-700 cursor-pointer shrink-0 text-[10px]"
+                    >
+                      ESC
+                    </button>
+                  </div>
+
+                  <div className="max-h-80 overflow-y-auto divide-y divide-[#D1CDC4]">
+                    {matchedTasks.length === 0 && matchedFiles.length === 0 ? (
+                      <div className="p-6 text-center text-xs text-slate-500 font-semibold">
+                        No matching tasks or files found.
+                      </div>
+                    ) : (
+                      <>
+                        {matchedTasks.length > 0 && (
+                          <div className="p-2 space-y-1">
+                            <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-[#1F4D3A] flex items-center gap-1.5">
+                              <CheckSquare className="h-3 w-3" /> Tasks ({matchedTasks.length})
+                            </div>
+                            {matchedTasks.map((task: any) => (
+                              <div
+                                key={task.id}
+                                onClick={() => {
+                                  setIsSearchOpen(false);
+                                  setSearchQuery("");
+                                  navigate('/tasks');
+                                }}
+                                className="px-2.5 py-2 hover:bg-[#FAF9F6] cursor-pointer rounded flex items-center justify-between text-xs group"
+                              >
+                                <span className="font-medium text-stone-900 group-hover:text-[#1F4D3A] truncate pr-2">
+                                  {task.title}
+                                </span>
+                                <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase border border-slate-300 text-slate-600 bg-white shrink-0">
+                                  {task.status.replace('_', ' ')}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {matchedFiles.length > 0 && (
+                          <div className="p-2 space-y-1">
+                            <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-[#C6A15B] flex items-center gap-1.5">
+                              <FileText className="h-3 w-3" /> Files ({matchedFiles.length})
+                            </div>
+                            {matchedFiles.map((file: any) => (
+                              <div
+                                key={file.id}
+                                onClick={() => {
+                                  setIsSearchOpen(false);
+                                  setSearchQuery("");
+                                  navigate('/files');
+                                }}
+                                className="px-2.5 py-2 hover:bg-[#FAF9F6] cursor-pointer rounded flex items-center justify-between text-xs group"
+                              >
+                                <span className="font-medium text-stone-900 group-hover:text-[#1F4D3A] truncate pr-2">
+                                  {file.name}
+                                </span>
+                                <span className="text-[10px] text-slate-400 shrink-0 font-medium">
+                                  {file.size ? `${Math.round(file.size / 1024)} KB` : ''}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-xs font-bold uppercase tracking-tighter bg-[#1F4D3A] text-white px-2 py-1 hidden sm:block">
@@ -361,29 +577,67 @@ export function Layout() {
             
             <Popover>
               <PopoverTrigger render={
-                <button type="button" className="w-8 h-8 border border-slate-300 flex items-center justify-center cursor-pointer hover:bg-slate-50 transition-colors relative">
+                <button type="button" className="w-8 h-8 border border-slate-300 flex items-center justify-center cursor-pointer hover:bg-slate-50 transition-colors relative" title="Notifications">
                   <Bell className="h-4 w-4 text-slate-700" />
-                  {notifications.filter((n: any) => !n.isRead).length > 0 && (
-                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#A12B2B] rounded-full border border-white"></span>
+                  {notifications.filter((n: any) => !n.read && !n.isRead).length > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 bg-[#A12B2B] text-white rounded-full text-[9px] font-bold flex items-center justify-center border border-white leading-none">
+                      {notifications.filter((n: any) => !n.read && !n.isRead).length > 9 ? '9+' : notifications.filter((n: any) => !n.read && !n.isRead).length}
+                    </span>
                   )}
                 </button>
               } />
               <PopoverContent className="w-80 p-0" align="end">
-                <div className="p-4 border-b border-[#D1CDC4] bg-slate-50">
-                  <h4 className="font-bold text-sm uppercase tracking-widest text-[#111111]">Notifications</h4>
+                <div className="p-3 sm:p-4 border-b border-[#D1CDC4] bg-slate-50 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold text-sm uppercase tracking-widest text-[#111111]">Notifications</h4>
+                    {notifications.filter((n: any) => !n.read && !n.isRead).length > 0 && (
+                      <span className="text-[10px] font-bold bg-[#1F4D3A] text-white px-1.5 py-0.5 rounded-full">
+                        {notifications.filter((n: any) => !n.read && !n.isRead).length} new
+                      </span>
+                    )}
+                  </div>
+                  {notifications.filter((n: any) => !n.read && !n.isRead).length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => markAllAsReadMutation.mutate()}
+                      disabled={markAllAsReadMutation.isPending}
+                      className="text-[11px] font-bold uppercase tracking-wider text-[#1F4D3A] hover:underline cursor-pointer disabled:opacity-50"
+                    >
+                      {markAllAsReadMutation.isPending ? 'Marking...' : 'Mark all read'}
+                    </button>
+                  )}
                 </div>
                 <div className="h-80 overflow-y-auto overflow-x-hidden p-2 space-y-1">
                   {notifications.length === 0 ? (
                     <div className="text-[11px] text-slate-500 font-bold uppercase tracking-widest text-center py-6">No notifications</div>
                   ) : (
-                    notifications.map((notif: any) => (
-                      <div key={notif.id} className={`p-3 text-[13px] border-b border-[#DCD6CC]/50 last:border-0 ${notif.isRead ? 'opacity-70' : 'bg-[#FAF9F6]'}`}>
-                        <div className="text-slate-800 font-medium">{notif.message}</div>
-                        <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
-                          {format(new Date(notif.createdAt), 'MMM d, h:mm a')}
+                    notifications.map((notif: any) => {
+                      const isUnread = !notif.read && !notif.isRead;
+                      return (
+                        <div
+                          key={notif.id}
+                          onClick={() => {
+                            if (isUnread) markAsReadMutation.mutate(notif.id);
+                          }}
+                          className={`p-3 text-[13px] border-b border-[#DCD6CC]/50 last:border-0 cursor-pointer transition-colors ${
+                            isUnread ? 'bg-[#FAF9F6] hover:bg-amber-50/50' : 'opacity-60 bg-white hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className={`font-semibold ${isUnread ? 'text-[#111111]' : 'text-slate-600'}`}>
+                              {notif.title || 'Notification'}
+                            </div>
+                            {isUnread && (
+                              <span className="w-2 h-2 rounded-full bg-[#1F4D3A] shrink-0 mt-1" title="Unread"></span>
+                            )}
+                          </div>
+                          <div className="text-slate-700 text-xs mt-0.5">{notif.message}</div>
+                          <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
+                            {format(new Date(notif.createdAt), 'MMM d, h:mm a')}
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </PopoverContent>
@@ -391,7 +645,7 @@ export function Layout() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-8">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <div className="mx-auto max-w-6xl">
             <Outlet />
           </div>
