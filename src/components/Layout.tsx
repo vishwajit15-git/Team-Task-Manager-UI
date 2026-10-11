@@ -1,4 +1,4 @@
-import { LayoutDashboard, CheckSquare, FolderGit2, Users, Settings, LogOut, Bell, MessageSquare, Clock, FileText, Menu, X, Mail, Video, BarChart2, Layers, ChevronDown } from "lucide-react";
+import { LayoutDashboard, CheckSquare, FolderGit2, Users, Settings, LogOut, Bell, MessageSquare, Clock, FileText, Menu, Video, BarChart2, Layers } from "lucide-react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { useProject } from "../lib/projectContext";
@@ -17,16 +17,24 @@ import { toast } from "sonner";
 export function Layout() {
   const queryClient = useQueryClient();
   const { user, setUser, logout } = useAuth();
-  const { projects, activeProject, setActiveProject } = useProject();
+  const { activeProject, setActiveProject } = useProject();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [showProjectSelector, setShowProjectSelector] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [projectTitle, setProjectTitle] = useState("");
+  const [deleteStep, setDeleteStep] = useState<0 | 1 | 2>(0);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+
+  useEffect(() => {
+    if (!showSettings) {
+      setDeleteStep(0);
+      setDeleteConfirmName("");
+    }
+  }, [showSettings]);
 
   useEffect(() => {
     if (activeProject) {
-      setProjectTitle(activeProject.title || activeProject.name || "");
+      setProjectTitle(activeProject.name || "");
     }
   }, [activeProject]);
 
@@ -132,7 +140,7 @@ export function Layout() {
             Workspace
           </div>
           <div className="text-lg font-bold flex items-center gap-2 mb-4">
-             <span>{currentProject ? currentProject.title : 'Setup Required'}</span>
+             <span>{currentProject ? currentProject.name : 'Setup Required'}</span>
              {currentProject && <div className="w-2 h-2 rounded-full bg-[#C6A15B]"></div>}
           </div>
           
@@ -222,43 +230,19 @@ export function Layout() {
               <Menu className="h-5 w-5" />
             </button>
             <div className="flex items-center gap-2 text-sm font-bold relative">
-              <span className="text-slate-400">Projects</span>
+              <span className="text-slate-400">Workspace</span>
               <span className="text-slate-400">/</span>
               
-              <div className="relative">
-                <button 
-                  onClick={() => setShowProjectSelector(!showProjectSelector)}
-                  className="flex items-center gap-1 hover:text-[#C6A15B] transition-colors"
-                >
-                  {activeProject?.title || 'Select Project'}
-                  <ChevronDown className="h-4 w-4 text-slate-400" />
-                </button>
-                
-                {showProjectSelector && (
-                  <div className="absolute top-full left-0 mt-2 w-48 bg-white border border-[#D1CDC4] shadow-lg z-50">
-                    {projects.map(p => (
-                      <button
-                        key={p.id}
-                        onClick={() => {
-                          setActiveProject(p);
-                          setShowProjectSelector(false);
-                        }}
-                        className={`w-full text-left px-4 py-2 text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors ${activeProject?.id === p.id ? 'text-[#C6A15B]' : 'text-slate-600'}`}
-                      >
-                        {p.title}
-                      </button>
-                    ))}
-                  </div>
-                )}
+              <div className="flex items-center gap-1 text-[#C6A15B]">
+                {activeProject?.name || 'Main Project'}
               </div>
-
               {activeProject && (
                 <Dialog open={showSettings} onOpenChange={setShowSettings}>
-                  <DialogTrigger asChild>
-                    <button className="ml-1 p-1 hover:bg-slate-100 rounded-md text-slate-400 hover:text-slate-600 transition-colors">
+                  <DialogTrigger render={
+                    <button type="button" className="ml-1 p-1 hover:bg-slate-100 rounded-md text-slate-400 hover:text-slate-600 transition-colors">
                       <Settings className="h-4 w-4" />
                     </button>
-                  </DialogTrigger>
+                  } />
                   <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
                       <DialogTitle>Project Settings</DialogTitle>
@@ -273,7 +257,7 @@ export function Layout() {
                         />
                         <Button 
                           onClick={() => updateProjectMutation.mutate({ name: projectTitle })}
-                          disabled={updateProjectMutation.isPending || !projectTitle.trim() || projectTitle === (activeProject.title || activeProject.name)}
+                          disabled={updateProjectMutation.isPending || !projectTitle.trim() || projectTitle === activeProject.name}
                           className="w-full mt-2 bg-[#1F4D3A] text-white"
                         >
                           {updateProjectMutation.isPending ? "Saving..." : "Save Changes"}
@@ -282,21 +266,81 @@ export function Layout() {
 
                       <div className="pt-4 border-t border-red-100">
                         <h4 className="text-sm font-semibold text-red-600 mb-2">Danger Zone</h4>
-                        <p className="text-xs text-slate-500 mb-4">
-                          Once you delete a project, there is no going back. Please be certain.
-                        </p>
-                        <Button 
-                          onClick={() => {
-                            if (window.confirm("Are you absolutely sure you want to delete this project and all its tasks, files, and messages?")) {
-                              deleteProjectMutation.mutate();
-                            }
-                          }}
-                          disabled={deleteProjectMutation.isPending}
-                          variant="destructive"
-                          className="w-full"
-                        >
-                          {deleteProjectMutation.isPending ? "Deleting..." : "Delete Project"}
-                        </Button>
+                        
+                        {deleteStep === 0 && (
+                          <>
+                            <p className="text-xs text-slate-500 mb-4">
+                              Once you delete a project, there is no going back. Please be certain.
+                            </p>
+                            <Button 
+                              onClick={() => setDeleteStep(1)}
+                              variant="destructive"
+                              className="w-full"
+                            >
+                              Delete Project
+                            </Button>
+                          </>
+                        )}
+
+                        {deleteStep === 1 && (
+                          <div className="space-y-3 animate-in fade-in zoom-in-95 duration-200">
+                            <p className="text-xs text-slate-600">
+                              To verify, type <span className="font-bold text-black">{activeProject.name}</span> below:
+                            </p>
+                            <Input 
+                              value={deleteConfirmName} 
+                              onChange={(e) => setDeleteConfirmName(e.target.value)} 
+                              placeholder="Project name"
+                              className="border-red-200 focus:border-red-500"
+                            />
+                            <div className="flex gap-2">
+                              <Button 
+                                onClick={() => setDeleteStep(0)} 
+                                variant="outline" 
+                                className="flex-1"
+                              >
+                                Cancel
+                              </Button>
+                              <Button 
+                                onClick={() => setDeleteStep(2)}
+                                disabled={deleteConfirmName !== activeProject.name}
+                                variant="destructive"
+                                className="flex-1"
+                              >
+                                Confirm
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {deleteStep === 2 && (
+                          <div className="space-y-3 p-3 bg-red-50 border border-red-200 rounded-md animate-in fade-in zoom-in-95 duration-200">
+                            <p className="text-sm font-bold text-red-800 text-center">
+                              Are you absolutely sure?
+                            </p>
+                            <p className="text-xs text-red-600 text-center">
+                              This will permanently delete the project and all associated tasks, files, and messages.
+                            </p>
+                            <div className="flex gap-2 mt-2">
+                              <Button 
+                                onClick={() => setDeleteStep(0)} 
+                                variant="outline" 
+                                className="flex-1 bg-white"
+                                disabled={deleteProjectMutation.isPending}
+                              >
+                                Cancel
+                              </Button>
+                              <Button 
+                                onClick={() => deleteProjectMutation.mutate()}
+                                disabled={deleteProjectMutation.isPending}
+                                variant="destructive"
+                                className="flex-1"
+                              >
+                                {deleteProjectMutation.isPending ? "Deleting..." : "Yes, Delete"}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </DialogContent>

@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popove
 
 export function Tasks() {
   const { user } = useAuth();
-  const { activeProject } = useProject();
+  const { activeProject, setActiveProject } = useProject();
   const queryClient = useQueryClient();
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [comment, setComment] = useState('');
@@ -189,11 +189,15 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newProject)
       });
-      if (!res.ok) throw new Error('Failed to create project');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to create project');
+      }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      setActiveProject(data.data.project);
       setProjectDialogOpen(false);
       setProjectTitle('');
       toast.success('Project setup successfully');

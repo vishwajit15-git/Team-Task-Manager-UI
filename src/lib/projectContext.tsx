@@ -4,7 +4,7 @@ import { apiFetch } from './api';
 
 type Project = {
   id: string;
-  title: string;
+  name: string;
   status: string;
   tasks?: any[];
   members?: any[];
@@ -13,7 +13,7 @@ type Project = {
 type ProjectContextType = {
   projects: Project[];
   activeProject: Project | null;
-  setActiveProject: (project: Project) => void;
+  setActiveProject: (project: Project | null) => void;
   isLoading: boolean;
 };
 
@@ -41,9 +41,13 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     }
   }, [projects, activeProject]);
 
-  const setActiveProject = (project: Project) => {
+  const setActiveProject = (project: Project | null) => {
     setActiveProjectState(project);
-    localStorage.setItem('activeProjectId', project.id);
+    if (project) {
+      localStorage.setItem('activeProjectId', project.id);
+    } else {
+      localStorage.removeItem('activeProjectId');
+    }
   };
 
   return (

@@ -25,7 +25,8 @@ export function Messages() {
       if (!activeProject) return [];
       const res = await apiFetch(`/api/projects/${activeProject.id}/messages`);
       if (!res.ok) throw new Error('Failed to fetch messages');
-      return res.json();
+      const json = await res.json();
+      return json.data?.messages || [];
     },
     enabled: !!activeProject
   });
@@ -51,41 +52,11 @@ export function Messages() {
       if (!res.ok) throw new Error('Failed to send message');
       return res.json();
     },
-    onMutate: async (newMsg) => {
-      await queryClient.cancelQueries({ queryKey: ['messages', activeProject?.id] });
-      const previousMessages = queryClient.getQueryData(['messages', activeProject?.id]);
-      
-      const tempMessage = {
-        id: Date.now().toString(),
-        content: newMsg.content,
-        attachmentUrl: newMsg.attachmentUrl,
-        attachmentType: newMsg.attachmentType,
-        createdAt: new Date().toISOString(),
-        userId: user?.id,
-        user: {
-          id: user?.id,
-          name: user?.name
-        },
-        replyTo: replyingTo ? {
-          id: replyingTo.id,
-          content: replyingTo.content,
-          user: replyingTo.user
-        } : null,
-      };
-
-      queryClient.setQueryData(['messages', activeProject?.id], (old: any) => [...(old || []), tempMessage]);
-
+    onMutate: async () => {
       setContent('');
       setAttachment(null);
       setReplyingTo(null);
       setShowEmojiPicker(false);
-
-      return { previousMessages };
-    },
-    onError: (err, newMsg, context) => {
-      if (context?.previousMessages) {
-        queryClient.setQueryData(['messages', activeProject?.id], context.previousMessages);
-      }
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['messages', activeProject?.id] });
@@ -148,16 +119,16 @@ export function Messages() {
           <div className="text-center text-slate-500 py-10 font-bold uppercase tracking-widest text-xs">Loading messages...</div>
         ) : (
           messages.map((msg: any) => {
-            const isMe = msg.userId === user?.id;
+            const isMe = msg.senderId === user?.id;
             return (
               <div key={msg.id} className={`flex gap-4 group ${isMe ? 'flex-row-reverse' : ''}`}>
                 <div className="h-10 w-10 shrink-0 bg-[#C6A15B] flex items-center justify-center font-bold text-[#111111] text-sm mt-1 overflow-hidden">
-                  {msg.user.name.charAt(0).toUpperCase()}
+                  {msg.sender?.name?.charAt(0).toUpperCase()}
                 </div>
                 <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[70%]`}>
                   <div className="flex items-baseline gap-2 mb-1">
                     <span className="font-bold text-[13px] text-[#111111]">
-                      {isMe ? 'You' : msg.user.name}
+                      {isMe ? 'You' : msg.sender?.name}
                     </span>
                     <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
                       {format(new Date(msg.createdAt), 'h:mm a')}
@@ -166,7 +137,7 @@ export function Messages() {
                   
                   {msg.replyTo && (
                     <div className={`mb-1 px-3 py-2 text-[11px] border-l-2 ${isMe ? 'bg-[#111111]/5 border-[#111111]/20 text-slate-600' : 'bg-black/5 border-[#C6A15B] text-slate-600'}`}>
-                      <div className="font-bold mb-0.5">{msg.replyTo.user.name}</div>
+                      <div className="font-bold mb-0.5">{msg.replyTo.sender?.name}</div>
                       {msg.replyTo.content || 'Attachment'}
                     </div>
                   )}
@@ -197,7 +168,7 @@ export function Messages() {
         {replyingTo && (
           <div className="mb-3 p-3 bg-slate-50 border border-[#C6A15B]/40 flex items-center justify-between">
             <div className="flex flex-col">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-[#C6A15B] mb-1">Replying to {replyingTo.user.name}</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#C6A15B] mb-1">Replying to {replyingTo.sender?.name}</span>
               <span className="text-[13px] text-slate-700 line-clamp-1">{replyingTo.content || 'Attachment'}</span>
             </div>
             <button 

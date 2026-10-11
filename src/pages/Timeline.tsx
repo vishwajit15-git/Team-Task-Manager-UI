@@ -2,22 +2,27 @@ import { apiFetch } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { 
-  format, differenceInDays, addDays, isBefore, isAfter, 
+  format, differenceInDays, addDays, 
   startOfMonth, endOfMonth, startOfWeek, endOfWeek, isSameMonth, 
   isSameDay, subMonths, addMonths 
 } from 'date-fns';
 import { useState } from 'react';
 
+import { useProject } from '../lib/projectContext';
+
 export function Timeline() {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const { activeProject } = useProject();
 
   const { data: tasks = [], isLoading } = useQuery({
-    queryKey: ['tasks'],
+    queryKey: ['tasks', activeProject?.id],
     queryFn: async () => {
-      const res = await apiFetch('/api/tasks');
+      const res = await apiFetch(`/api/tasks${activeProject ? `?projectId=${activeProject.id}` : ''}`);
       if (!res.ok) throw new Error('Failed to fetch tasks');
-      return res.json();
-    }
+      const data = await res.json();
+      return data.data?.tasks || [];
+    },
+    enabled: !!activeProject
   });
 
   const monthStart = startOfMonth(currentDate);
@@ -120,6 +125,20 @@ export function Timeline() {
     return new Date(task.dueDate) < new Date();
   };
 
+  const getTaskColors = (task: any) => {
+    if (isOverdue(task)) return 'bg-red-50 text-red-700 border-red-200 border-l-4 border-l-red-500';
+    switch (task.status) {
+      case 'COMPLETED': return 'bg-emerald-50 text-emerald-700 border-emerald-200 border-l-4 border-l-emerald-500';
+      case 'IN_PROGRESS': return 'bg-blue-50 text-blue-700 border-blue-200 border-l-4 border-l-blue-500';
+      case 'REVIEW': return 'bg-amber-50 text-amber-700 border-amber-200 border-l-4 border-l-amber-500';
+      default: return 'bg-slate-50 text-slate-700 border-slate-200 border-l-4 border-l-slate-400';
+    }
+  };
+
+  if (!activeProject) {
+    return <div className="p-8 text-center text-slate-500 font-bold uppercase tracking-widest text-xs">Please set up a project to view the timeline.</div>;
+  }
+  
   if (isLoading) {
     return <div className="p-8 text-center text-slate-500 font-bold uppercase tracking-widest text-xs animate-pulse">Loading timeline...</div>;
   }
@@ -132,7 +151,15 @@ export function Timeline() {
             <CalendarIcon className="h-8 w-8 text-[#1F4D3A]" />
             Task Timeline
           </h1>
-          <p className="text-slate-500 mt-1">Monthly calendar view of your scheduled tasks.</p>
+          <p className="text-slate-500 mt-1 mb-4">Monthly calendar view of your scheduled tasks.</p>
+          
+          <div className="flex flex-wrap items-center gap-4 text-[10px] uppercase font-bold tracking-widest text-slate-600">
+             <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-slate-200 border border-slate-300"></span> Todo</div>
+             <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-blue-100 border border-blue-300"></span> In Progress</div>
+             <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-amber-100 border border-amber-300"></span> Review</div>
+             <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-300"></span> Completed</div>
+             <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-100 border border-red-300 flex items-center justify-center text-[8px] text-red-700 font-black">!</span> Overdue</div>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={today} className="px-3 py-1.5 text-xs font-bold uppercase tracking-widest bg-slate-100 hover:bg-slate-200 text-[#111111] rounded transition-colors">
@@ -165,7 +192,7 @@ export function Timeline() {
           {rows.map((rowDays, i) => {
             const weekTasks = getTasksForWeek(rowDays[0], rowDays[6]);
             const maxTrack = weekTasks.length > 0 ? Math.max(...weekTasks.map(t => t.trackIndex)) : -1;
-            const rowHeight = Math.max(120, (maxTrack + 1) * 28 + 40);
+            const rowHeight = Math.max(120, (maxTrack + 1) * 36 + 40);
 
             return (
               <div key={i} className="relative flex border-b border-[#D1CDC4] last:border-0" style={{ height: `${rowHeight}px` }}>
@@ -191,23 +218,32 @@ export function Timeline() {
                 <div className="absolute inset-x-0 bottom-0 top-10 pointer-events-none">
                   {weekTasks.map((t, index) => {
                     const taskOverdue = isOverdue(t.task);
+                    const colorClasses = getTaskColors(t.task);
+                    
                     return (
                       <div
                         key={index}
-                        className={`absolute h-6 px-2 text-xs font-medium flex items-center truncate border-y pointer-events-auto cursor-pointer hover:brightness-110 transition-all
-                          ${taskOverdue ? 'bg-red-50 text-red-700 border-red-200' : 'bg-[#1F4D3A]/10 text-[#1F4D3A] border-[#1F4D3A]/20'}`}
+                        className={`absolute h-8 px-2 text-xs font-medium flex items-center justify-between border pointer-events-auto cursor-pointer shadow-sm hover:shadow transition-all ${colorClasses}`}
                         style={{
                           left: `calc(${(t.startOffset / 7) * 100}% + ${t.startOffset > 0 ? 4 : 0}px)`,
                           width: `calc(${(t.duration / 7) * 100}% - ${t.startOffset > 0 ? 4 : 0}px - ${t.startOffset + t.duration < 7 ? 4 : 0}px)`,
-                          top: `${t.trackIndex * 28 + 4}px`,
-                          borderRadius: '3px',
+                          top: `${t.trackIndex * 36 + 4}px`,
+                          borderRadius: '6px',
                         }}
-                        title={t.task.title}
+                        title={`${t.task.title} - ${t.task.status}`}
                       >
-                        <div className="truncate pointer-events-none select-none">
-                          {taskOverdue && <span className="font-bold text-red-600 mr-1.5">[Overdue]</span>}
-                          {t.task.title}
+                        <div className="flex items-center gap-2 truncate pointer-events-none select-none min-w-0">
+                          {taskOverdue && <span className="font-bold text-red-600 shrink-0">!</span>}
+                          <span className="truncate font-semibold">{t.task.title}</span>
                         </div>
+                        {t.task.assignee && (
+                          <div 
+                            className="h-5 w-5 shrink-0 rounded-full bg-black/10 flex items-center justify-center font-bold text-[9px] uppercase border border-black/10"
+                            title={t.task.assignee.name}
+                          >
+                            {t.task.assignee.name.charAt(0)}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
