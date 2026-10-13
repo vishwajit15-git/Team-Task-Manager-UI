@@ -9,8 +9,9 @@ import { toast } from 'sonner';
 
 import { useProject } from '../lib/projectContext';
 
-const fetchStats = async () => {
-  const res = await apiFetch('/api/dashboard');
+const fetchStats = async (projectId?: string) => {
+  const url = projectId ? `/api/dashboard?projectId=${encodeURIComponent(projectId)}` : '/api/dashboard';
+  const res = await apiFetch(url);
   if (!res.ok) throw new Error('Failed to fetch stats');
   const json = await res.json();
   return json.data;
@@ -25,8 +26,9 @@ export function Dashboard() {
   const [comment, setComment] = useState('');
 
   const { data, isLoading } = useQuery({
-    queryKey: ['dashboardStats'],
-    queryFn: fetchStats
+    queryKey: ['dashboardStats', activeProject?.id],
+    queryFn: () => fetchStats(activeProject?.id),
+    refetchInterval: 5000
   });
 
   const { data: comments = [], isLoading: isLoadingComments } = useQuery({
@@ -118,11 +120,18 @@ export function Dashboard() {
           <div className="w-full h-1.5 bg-slate-100 mt-4 rounded-full overflow-hidden">
             <div 
               className="h-full bg-[#C6A15B] rounded-full transition-all duration-700" 
-              style={{ width: stats.totalTasks > 0 ? `${Math.round((stats.openTasks / stats.totalTasks) * 100)}%` : '0%' }}
+              style={{ width: (stats.myTotalTasks || stats.totalTasks) > 0 ? `${Math.round((stats.openTasks / (stats.myTotalTasks || stats.totalTasks)) * 100)}%` : '0%' }}
             />
           </div>
-          <div className="text-[10px] text-slate-400 mt-1 font-bold uppercase tracking-widest">
-            {stats.totalTasks > 0 ? `${Math.round((stats.openTasks / stats.totalTasks) * 100)}% open` : 'No tasks'}
+          <div className="text-[10px] text-slate-400 mt-1 font-bold uppercase tracking-widest flex items-center justify-between">
+            <span>
+              {(stats.myTotalTasks || stats.totalTasks) > 0 ? `${Math.round((stats.openTasks / (stats.myTotalTasks || stats.totalTasks)) * 100)}% open` : 'No tasks'}
+            </span>
+            {(stats.myTotalTasks || 0) > 0 && (
+              <span className="text-slate-400 font-medium">
+                {stats.openTasks} of {stats.myTotalTasks} assigned
+              </span>
+            )}
           </div>
         </div>
         <div className="bg-white border border-[#D1CDC4] p-4 flex-1">
@@ -134,8 +143,15 @@ export function Dashboard() {
               style={{ width: stats.totalTasks > 0 ? `${Math.round((stats.completedTasks / stats.totalTasks) * 100)}%` : '0%' }}
             />
           </div>
-          <div className="text-[10px] text-emerald-700 mt-1 font-bold uppercase tracking-widest">
-            {stats.totalTasks > 0 ? `${Math.round((stats.completedTasks / stats.totalTasks) * 100)}% done` : 'No tasks'}
+          <div className="text-[10px] text-emerald-700 mt-1 font-bold uppercase tracking-widest flex items-center justify-between">
+            <span>
+              {stats.totalTasks > 0 ? `${Math.round((stats.completedTasks / stats.totalTasks) * 100)}% done` : 'No tasks'}
+            </span>
+            {stats.totalTasks > 0 && (
+              <span className="text-slate-400 font-medium">
+                {stats.completedTasks} of {stats.totalTasks} tasks
+              </span>
+            )}
           </div>
         </div>
         <div className="bg-[#C6A15B] text-[#111111] p-4 flex-1 flex flex-col justify-between">

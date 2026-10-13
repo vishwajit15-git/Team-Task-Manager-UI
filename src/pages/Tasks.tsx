@@ -117,6 +117,7 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['team'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
       setSelectedTask((prev: any) => (prev ? { ...prev, status: newStatus } : null));
     }
   });
@@ -138,6 +139,7 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['team'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
       // API returns { status, data: { task: {...} } } — extract the task
       setSelectedTask(updated?.data?.task || updated);
       setIsEditingTask(false);
@@ -174,6 +176,7 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['team'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
       setTaskDialogOpen(false);
       setTitle('');
       setDescription('');

@@ -14,6 +14,7 @@ import { Team } from './pages/Team';
 import { Meeting } from './pages/Meeting';
 import { Polls } from './pages/Polls';
 import { Assets } from './pages/Assets';
+import { Walkthrough } from './pages/Walkthrough';
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -25,7 +26,9 @@ export default function App() {
   return (
     <Routes>
       {/* Public Routes */}
-      <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/walkthrough" element={<Walkthrough />} />
+      <Route path="/demo" element={<Navigate to="/walkthrough" />} />
       <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
       <Route path="/forgot-password" element={!user ? <ForgotPassword /> : <Navigate to="/" />} />
       <Route path="/reset-password" element={!user ? <ResetPassword /> : <Navigate to="/" />} />
