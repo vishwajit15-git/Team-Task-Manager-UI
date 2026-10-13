@@ -112,10 +112,12 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
       if (!res.ok) throw new Error('Failed to update task');
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, newStatus) => {
       queryClient.invalidateQueries({ queryKey: ['myTasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['team'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      setSelectedTask((prev: any) => ({ ...prev, status: prev.status }));
+      setSelectedTask((prev: any) => (prev ? { ...prev, status: newStatus } : null));
     }
   });
 
@@ -133,6 +135,8 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
     },
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['myTasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['team'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       // API returns { status, data: { task: {...} } } — extract the task
       setSelectedTask(updated?.data?.task || updated);
@@ -167,6 +171,8 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myTasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['team'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       setTaskDialogOpen(false);
       setTitle('');
@@ -641,6 +647,9 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
                   const res = await apiFetch(`/api/tasks/${taskToDelete.id}`, { method: 'DELETE' });
                   if (res.ok) {
                     queryClient.invalidateQueries({ queryKey: ['myTasks'] });
+                    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+                    queryClient.invalidateQueries({ queryKey: ['team'] });
+                    queryClient.invalidateQueries({ queryKey: ['projects'] });
                     setSelectedTask(null);
                     setTaskToDelete(null);
                     toast.success('Task deleted');

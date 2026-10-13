@@ -91,12 +91,14 @@ export function Polls() {
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-[#C6A15B] hover:bg-[#b08e4e] text-white">
-              <Plus className="h-4 w-4 mr-2" />
-              Create Poll
-            </Button>
-          </DialogTrigger>
+          <DialogTrigger
+            render={
+              <Button className="bg-[#C6A15B] hover:bg-[#b08e4e] text-white">
+                <Plus className="h-4 w-4 mr-2" />
+                Create Poll
+              </Button>
+            }
+          />
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Create a New Poll</DialogTitle>
