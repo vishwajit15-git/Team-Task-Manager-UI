@@ -653,6 +653,7 @@ const toggleAssignee = (id: string) => setAssignees(prev => prev.includes(id) ? 
                     queryClient.invalidateQueries({ queryKey: ['tasks'] });
                     queryClient.invalidateQueries({ queryKey: ['team'] });
                     queryClient.invalidateQueries({ queryKey: ['projects'] });
+                    queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
                     setSelectedTask(null);
                     setTaskToDelete(null);
                     toast.success('Task deleted');
