@@ -659,6 +659,17 @@ function ProfileDialog({ user, setUser }: { user: any; setUser: any }) {
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState(user?.name || '');
   const [avatar, setAvatar] = useState(user?.avatar || '');
+  const [previewUrl, setPreviewUrl] = useState<string>(user?.avatar || '');
+
+  // Sync form state when the dialog opens
+  const handleOpenChange = (open: boolean) => {
+    if (open) {
+      setName(user?.name || '');
+      setAvatar(user?.avatar || '');
+      setPreviewUrl(user?.avatar || '');
+    }
+    setIsOpen(open);
+  };
 
   const updateMutation = useMutation({
     mutationFn: async () => {
@@ -670,9 +681,16 @@ function ProfileDialog({ user, setUser }: { user: any; setUser: any }) {
       if (!res.ok) throw new Error('Failed to update profile');
       return res.json();
     },
-    onSuccess: (updatedUser) => {
+    onSuccess: (data) => {
+      // API returns { status: 'success', data: { user: {...} } }
+      const updatedUser = data?.data?.user || data;
       setUser(updatedUser);
+      setPreviewUrl(updatedUser.avatar || '');
       setIsOpen(false);
+      toast.success('Profile updated successfully');
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || 'Failed to update profile');
     }
   });
 
@@ -681,7 +699,9 @@ function ProfileDialog({ user, setUser }: { user: any; setUser: any }) {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setAvatar(reader.result as string);
+        const dataUrl = reader.result as string;
+        setAvatar(dataUrl);
+        setPreviewUrl(dataUrl);
       };
       reader.readAsDataURL(file);
     }
@@ -690,7 +710,7 @@ function ProfileDialog({ user, setUser }: { user: any; setUser: any }) {
   if (!user) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger render={
         <button className="flex items-center justify-between mb-2 w-full text-left hover:bg-[#2D2D2D] -mx-2 px-2 py-1 rounded transition-colors group">
           <div className="flex items-center gap-3">
@@ -713,26 +733,39 @@ function ProfileDialog({ user, setUser }: { user: any; setUser: any }) {
           <DialogTitle>Edit Profile</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="flex justify-center mb-4">
-             <div className="h-24 w-24 shrink-0 bg-[#C6A15B] flex items-center justify-center font-bold text-[#111111] text-3xl overflow-hidden rounded-md">
-              {avatar ? (
-                <img src={avatar} alt={name} className="w-full h-full object-cover" />
-              ) : (
-                name.charAt(0).toUpperCase()
-              )}
-             </div>
+          {/* Avatar preview */}
+          <div className="flex justify-center mb-2">
+            <div className="relative group">
+              <div className="h-24 w-24 shrink-0 bg-[#C6A15B] flex items-center justify-center font-bold text-[#111111] text-3xl overflow-hidden rounded-md border-2 border-[#D1CDC4]">
+                {previewUrl ? (
+                  <img src={previewUrl} alt={name} className="w-full h-full object-cover" />
+                ) : (
+                  name.charAt(0).toUpperCase()
+                )}
+              </div>
+              <label
+                htmlFor="avatar-upload"
+                className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-md text-white text-[10px] font-bold uppercase tracking-widest"
+              >
+                Change
+              </label>
+            </div>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="name">Name</Label>
             <Input id="name" value={name} onChange={e => setName(e.target.value)} />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="avatar">Profile Picture</Label>
-            <Input id="avatar" type="file" accept="image/*" onChange={handleImageUpload} />
+            <Label htmlFor="avatar-upload">Profile Picture</Label>
+            <Input id="avatar-upload" type="file" accept="image/*" onChange={handleImageUpload} />
             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Select an image from your device</p>
           </div>
-          <Button disabled={updateMutation.isPending} onClick={() => updateMutation.mutate()} className="w-full bg-[#111111] hover:bg-[#222222] text-[#F5F1E8]">
-            Save Changes
+          <Button
+            disabled={updateMutation.isPending}
+            onClick={() => updateMutation.mutate()}
+            className="w-full bg-[#111111] hover:bg-[#222222] text-[#F5F1E8]"
+          >
+            {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
           </Button>
         </div>
       </DialogContent>
